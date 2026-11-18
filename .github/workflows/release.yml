@@ -48,6 +48,7 @@ jobs:
 
   macos:
     runs-on: macos-latest # Apple Silicon (arm64)
+    timeout-minutes: 30 # bir adım takılırsa sürüm saatlerce beklemesin
     steps:
       - uses: actions/checkout@v4
 
