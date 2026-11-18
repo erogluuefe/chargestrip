@@ -27,6 +27,26 @@ cargo test probe -- --ignored --nocapture   # gerçek cihazlarla deneme
 
 Windows'ta Rust (MSVC) ve Visual Studio C++ Build Tools gerekir.
 
+## Sürüm çıkarma
+
+1. `Cargo.toml` içindeki `version` değerini artır (ör. `0.3.0`) ve commit'le.
+2. Aynı sürümle etiket gönder:
+   ```
+   git tag v0.3.0
+   git push origin v0.3.0
+   ```
+3. GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)) testleri çalıştırır,
+   Windows kurulum dosyasını (`Chargestrip-Setup-0.3.0.exe`) ve macOS paketini üretip
+   Releases sayfasına koyar. Etiket `Cargo.toml` sürümüyle uyuşmazsa durur.
+
+Kurulum ([installer/chargestrip.iss](installer/chargestrip.iss), Inno Setup) yönetici izni istemez,
+`%LOCALAPPDATA%\Programs\Chargestrip` altına kurar, Başlat menüsüne kısayol ve isteğe bağlı açılışta
+başlatma ekler; "Uygulamalar" listesinden kaldırılabilir. Dosyalar imzasızdır: Windows ilk açılışta
+"Ek bilgi → Yine de çalıştır", macOS "sağ tık → Aç" ister.
+
+Yerelde kurulum dosyası: `cargo build --release` ardından
+`ISCC.exe /DAppVersion=0.3.0 installer\chargestrip.iss` → `dist\`.
+
 ## Yapı
 
 ```
@@ -44,6 +64,8 @@ src/
     autostart.rs     HKCU\…\Run
   mac.rs             menü çubuğu öğesi + LaunchAgent
 build.rs             Windows uygulama bildirimi (katmanlı alt pencere ve DPI için)
+installer/           Inno Setup kurulum tanımı
+.github/workflows/   sürüm etiketiyle otomatik derleme ve Release
 tools/hidspy/        protokol çözmek için HID trafik dinleyicisi
 ```
 

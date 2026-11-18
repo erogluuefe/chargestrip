@@ -1,0 +1,100 @@
+# Sürüm: "v0.2.0" gibi bir etiket gönderilince Windows kurulum dosyasını ve macOS paketini
+# üretip GitHub Releases'e koyar. Actions sekmesinden elle de çalıştırılabilir (yalnızca derler,
+# dosyaları "Artifacts" olarak bırakır, Release oluşturmaz).
+name: Sürüm
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sürüm numarası
+        id: ver
+        shell: pwsh
+        run: |
+          $cargo = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne "v$cargo") {
+            throw "Etiket (${{ github.ref_name }}) Cargo.toml sürümüyle (v$cargo) aynı değil"
+          }
+          "version=$cargo" >> $env:GITHUB_OUTPUT
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Derle
+        run: cargo build --release --locked
+
+      - name: Kurulum dosyası
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" installer\chargestrip.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.exe
+
+  macos:
+    runs-on: macos-latest # Apple Silicon (arm64)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Derle
+        run: cargo build --release --locked
+
+      - name: .app paketi
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          APP=Chargestrip.app/Contents
+          mkdir -p "$APP/MacOS"
+          cp target/release/chargestrip "$APP/MacOS/"
+          cat > "$APP/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Chargestrip</string>
+            <key>CFBundleIdentifier</key><string>com.chargestrip</string>
+            <key>CFBundleExecutable</key><string>chargestrip</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>$V</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>LSUIElement</key><true/>
+          </dict></plist>
+          EOF
+          ditto -c -k --keepParent Chargestrip.app "Chargestrip-macOS-$V.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: Chargestrip-macOS-*.zip
+
+  release:
+    # macOS sürümü henüz denenmedi; o başarısız olsa da Windows sürümü yayımlanır.
+    needs: [windows, macos]
+    if: ${{ always() && github.ref_type == 'tag' && needs.windows.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
