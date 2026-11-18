@@ -125,6 +125,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "chargestrip"
+version = "0.2.0"
+dependencies = [
+ "embed-manifest",
+ "hidapi",
+ "tao",
+ "tray-icon",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "combine"
 version = "4.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1166,17 +1177,6 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
-
-[[package]]
-name = "pil-gostergesi"
-version = "0.2.0"
-dependencies = [
- "embed-manifest",
- "hidapi",
- "tao",
- "tray-icon",
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "pin-project-lite"

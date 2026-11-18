@@ -7,7 +7,7 @@ use windows_sys::Win32::System::Registry::{
 };
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-const VALUE: &str = "PilGostergesi";
+const VALUE: &str = "Chargestrip";
 
 pub fn is_enabled() -> bool {
     let (key, value) = (wide(RUN_KEY), wide(VALUE));

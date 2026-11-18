@@ -1,4 +1,4 @@
-# Pil Göstergesi
+# Chargestrip
 
 Kablosuz kulaklık, fare vb. cihazların pil durumunu gösterir:
 
@@ -20,7 +20,7 @@ Hafiflik: tek dosya ~200 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). A
 ## Derleme
 
 ```
-cargo build --release          # target/release/pil-gostergesi.exe
+cargo build --release          # target/release/chargestrip.exe
 cargo test                     # birim testleri
 cargo test probe -- --ignored --nocapture   # gerçek cihazlarla deneme
 ```

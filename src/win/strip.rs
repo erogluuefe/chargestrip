@@ -132,7 +132,7 @@ impl Strip {
             }
 
             let hinst = GetModuleHandleW(null());
-            let class = wide("PilGostergesi");
+            let class = wide("Chargestrip");
             let wc = WNDCLASSEXW {
                 cbSize: size_of::<WNDCLASSEXW>() as u32,
                 lpfnWndProc: Some(wndproc),
@@ -143,7 +143,7 @@ impl Strip {
             };
             RegisterClassExW(&wc); // Explorer yeniden başlayınca tekrar çağrılır; "zaten var" önemsiz
 
-            let title = wide("Pil Göstergesi");
+            let title = wide("Chargestrip");
             let hwnd = CreateWindowExW(
                 WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, class.as_ptr(), title.as_ptr(),
                 WS_CHILD, 0, 0, 0, 0, taskbar, null_mut(), hinst, null(),

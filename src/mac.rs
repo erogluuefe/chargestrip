@@ -106,7 +106,7 @@ mod autostart {
 
     fn plist() -> Option<PathBuf> {
         let home = std::env::var_os("HOME")?;
-        Some(PathBuf::from(home).join("Library/LaunchAgents/com.pilgostergesi.plist"))
+        Some(PathBuf::from(home).join("Library/LaunchAgents/com.chargestrip.plist"))
     }
 
     pub fn is_enabled() -> bool {
@@ -125,7 +125,7 @@ mod autostart {
             r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>Label</key><string>com.pilgostergesi</string>
+  <key>Label</key><string>com.chargestrip</string>
   <key>ProgramArguments</key><array><string>{exe}</string></array>
   <key>RunAtLoad</key><true/>
 </dict></plist>

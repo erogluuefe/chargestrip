@@ -2,7 +2,7 @@
 // katmanlı (layered) alt pencere oluşturulamaz; ayrıca monitör başına DPI farkındalığı.
 fn main() {
     if std::env::var_os("CARGO_CFG_WINDOWS").is_some() {
-        embed_manifest::embed_manifest(embed_manifest::new_manifest("PilGostergesi"))
+        embed_manifest::embed_manifest(embed_manifest::new_manifest("Chargestrip"))
             .expect("manifest gömülemedi");
     }
     println!("cargo:rerun-if-changed=build.rs");

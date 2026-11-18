@@ -1,4 +1,4 @@
-//! Pil Göstergesi: kablosuz kulaklık, fare vb. cihazların pil durumunu Windows'ta taskbar'da,
+//! Chargestrip: kablosuz kulaklık, fare vb. cihazların pil durumunu Windows'ta taskbar'da,
 //! macOS'ta menü çubuğunda gösterir.
 //!
 //! Katmanlar:
