@@ -1,7 +1,7 @@
 //! İki tepsi simgesi (kulaklık, fare) ve ortak sağ tık menüsü. Platformdan bağımsız.
 
 use crate::autostart;
-use crate::icon::{render_icon, SIZE};
+use crate::icon::{render_icon, Kind, SIZE};
 use crate::model::{Shown, DASH, GRAY};
 use crate::poller::{Update, HEADSET_NAME, MOUSE_NAME};
 use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
@@ -21,20 +21,20 @@ pub struct Tray {
     quit: MenuItem,
 }
 
-fn icon(letter: char, s: &Shown) -> Option<Icon> {
-    Icon::from_rgba(render_icon(letter, &s.text, s.color), SIZE, SIZE).ok()
+fn icon(kind: Kind, s: &Shown) -> Option<Icon> {
+    Icon::from_rgba(render_icon(kind, &s.text, s.color), SIZE, SIZE).ok()
 }
 
 fn waiting(name: &str) -> Shown {
     Shown { text: DASH.into(), color: GRAY, tooltip: format!("{name}: okunuyor…") }
 }
 
-fn build(id: &str, letter: char, s: &Shown, menu: &Menu) -> Result<TrayIcon, String> {
+fn build(id: &str, kind: Kind, s: &Shown, menu: &Menu) -> Result<TrayIcon, String> {
     let mut b = TrayIconBuilder::new()
         .with_id(id)
         .with_tooltip(&s.tooltip)
         .with_menu(Box::new(menu.clone()));
-    if let Some(i) = icon(letter, s) {
+    if let Some(i) = icon(kind, s) {
         b = b.with_icon(i);
     }
     b.build().map_err(|e| e.to_string())
@@ -50,14 +50,14 @@ impl Tray {
         menu.append_items(&[&refresh, &autostart, &PredefinedMenuItem::separator(), &quit])
             .map_err(|e| e.to_string())?;
 
-        let mouse = build("fare", 'F', &waiting(MOUSE_NAME), &menu)?;
-        let headset = build("kulaklik", 'K', &waiting(HEADSET_NAME), &menu)?;
+        let mouse = build("fare", Kind::Mouse, &waiting(MOUSE_NAME), &menu)?;
+        let headset = build("kulaklik", Kind::Headset, &waiting(HEADSET_NAME), &menu)?;
         Ok(Self { headset, mouse, refresh, autostart, quit })
     }
 
     pub fn apply(&self, u: &Update) {
-        for (tray, letter, s) in [(&self.headset, 'K', &u.headset), (&self.mouse, 'F', &u.mouse)] {
-            let _ = tray.set_icon(icon(letter, s));
+        for (tray, kind, s) in [(&self.headset, Kind::Headset, &u.headset), (&self.mouse, Kind::Mouse, &u.mouse)] {
+            let _ = tray.set_icon(icon(kind, s));
             let _ = tray.set_tooltip(Some(&s.tooltip));
         }
     }
