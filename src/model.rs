@@ -1,122 +1,94 @@
-//! Cihazdan gelen okumayı ekranda gösterilecek hale çevirir. Donanımdan bağımsız, saf mantık.
+//! Cihazdan ve platformdan bağımsız veri modeli: sürücünün okuduğu pil bilgisi ve
+//! bunun ekranda nasıl gösterileceği. Renk/sembol seçimi platform katmanındadır.
 
-/// Bir cihazın tek bir sorgu sonucu.
+/// Cihaz türü; hangi ikonun çizileceğini belirler.
+/// Yeni bir tür eklenirse `win::strip::glyph` ve `mac::emoji` eşlemelerine birer satır eklenir.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Reading {
-    /// Pil okundu.
-    Ok { percent: u8, charging: bool },
-    /// Alıcı takılı ama cihaz kapalı / uykuda.
-    Disconnected,
-    /// Alıcı yok ya da okunamadı.
-    Unavailable,
+pub enum Kind {
+    Headset,
+    Mouse,
 }
 
+/// Bir sürücünün başarılı bir okumada bildirdiği pil durumu.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Rgb(pub u8, pub u8, pub u8);
+pub struct Battery {
+    /// 0–100
+    pub percent: u8,
+    /// Şarj kablosu takılı.
+    pub charging: bool,
+}
 
-pub const WHITE: Rgb = Rgb(0xFF, 0xFF, 0xFF);
-pub const RED: Rgb = Rgb(0xE5, 0x39, 0x35);
-pub const GREEN: Rgb = Rgb(0x43, 0xA0, 0x47);
-pub const GRAY: Rgb = Rgb(0x9E, 0x9E, 0x9E);
+/// Gösterimin anlamı.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Tone {
+    Normal,
+    /// Pil `LOW_PERCENT` veya altında.
+    Low,
+    Charging,
+    /// Cihaz kapalı/uykuda ya da okunamadı; varsa son bilinen değer gösterilir.
+    Inactive,
+}
 
-/// Bu değer ve altı kırmızı gösterilir.
+/// Bu değer ve altı düşük pil sayılır.
 pub const LOW_PERCENT: u8 = 15;
 
-pub const DASH: &str = "–";
-
-/// Simgede ve açıklamada gösterilecek şey.
+/// Bir cihazın ekranda gösterilecek hali.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Shown {
+    pub kind: Kind,
+    /// "75%" ya da değer yoksa "–".
     pub text: String,
-    pub color: Rgb,
-    pub tooltip: String,
+    pub tone: Tone,
 }
 
-/// `last`: bu cihazdan en son başarıyla okunan yüzde (uykudayken gri gösterilir).
-pub fn present(name: &str, r: &Reading, last: Option<u8>) -> Shown {
-    match *r {
-        Reading::Ok { percent, charging } => {
-            let color = if charging {
-                GREEN
-            } else if percent <= LOW_PERCENT {
-                RED
-            } else {
-                WHITE
-            };
-            let tooltip = if charging {
-                format!("{name}: %{percent} · şarj oluyor")
-            } else {
-                format!("{name}: %{percent}")
-            };
-            Shown { text: percent.to_string(), color, tooltip }
-        }
-        Reading::Disconnected => match last {
-            Some(p) => Shown {
-                text: p.to_string(),
-                color: GRAY,
-                tooltip: format!("{name}: bağlı değil (son %{p})"),
-            },
-            None => Shown {
-                text: DASH.into(),
-                color: GRAY,
-                tooltip: format!("{name}: bağlı değil"),
-            },
-        },
-        Reading::Unavailable => Shown {
-            text: DASH.into(),
-            color: GRAY,
-            tooltip: format!("{name}: alıcı bulunamadı"),
-        },
-    }
+/// `battery` yoksa (cihaz kapalı/uykuda) `last` — bu oturumda son okunan yüzde — soluk gösterilir.
+pub fn present(kind: Kind, battery: Option<Battery>, last: Option<u8>) -> Shown {
+    let (percent, tone) = match battery {
+        Some(b) if b.charging => (Some(b.percent), Tone::Charging),
+        Some(b) if b.percent <= LOW_PERCENT => (Some(b.percent), Tone::Low),
+        Some(b) => (Some(b.percent), Tone::Normal),
+        None => (last, Tone::Inactive),
+    };
+    let text = percent.map_or_else(|| "–".to_string(), |p| format!("{p}%"));
+    Shown { kind, text, tone }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn ok(percent: u8, charging: bool) -> Reading {
-        Reading::Ok { percent, charging }
+    fn b(percent: u8, charging: bool) -> Option<Battery> {
+        Some(Battery { percent, charging })
+    }
+
+    fn shown(text: &str, tone: Tone) -> Shown {
+        Shown { kind: Kind::Mouse, text: text.into(), tone }
     }
 
     #[test]
-    fn present_ok_normal() {
-        let s = present("Fare", &ok(82, false), None);
-        assert_eq!((s.text.as_str(), s.color), ("82", WHITE));
-        assert_eq!(s.tooltip, "Fare: %82");
+    fn normal() {
+        assert_eq!(present(Kind::Mouse, b(82, false), None), shown("82%", Tone::Normal));
     }
 
     #[test]
-    fn present_low_is_red() {
-        assert_eq!(present("Fare", &ok(15, false), None).color, RED);
-        assert_eq!(present("Fare", &ok(0, false), None).color, RED);
-        assert_eq!(present("Fare", &ok(16, false), None).color, WHITE);
+    fn low_threshold_is_inclusive() {
+        assert_eq!(present(Kind::Mouse, b(15, false), None).tone, Tone::Low);
+        assert_eq!(present(Kind::Mouse, b(0, false), None).tone, Tone::Low);
+        assert_eq!(present(Kind::Mouse, b(16, false), None).tone, Tone::Normal);
     }
 
     #[test]
-    fn present_charging_is_green_even_if_low() {
-        let s = present("Kulaklık", &ok(5, true), None);
-        assert_eq!(s.color, GREEN);
-        assert_eq!(s.tooltip, "Kulaklık: %5 · şarj oluyor");
+    fn charging_wins_over_low() {
+        assert_eq!(present(Kind::Mouse, b(5, true), None), shown("5%", Tone::Charging));
     }
 
     #[test]
-    fn present_disconnected_with_last_shows_gray_last() {
-        let s = present("Fare", &Reading::Disconnected, Some(40));
-        assert_eq!((s.text.as_str(), s.color), ("40", GRAY));
-        assert_eq!(s.tooltip, "Fare: bağlı değil (son %40)");
+    fn inactive_shows_last_known() {
+        assert_eq!(present(Kind::Mouse, None, Some(40)), shown("40%", Tone::Inactive));
     }
 
     #[test]
-    fn present_disconnected_without_last_is_dash() {
-        let s = present("Kulaklık", &Reading::Disconnected, None);
-        assert_eq!((s.text.as_str(), s.color), (DASH, GRAY));
-        assert_eq!(s.tooltip, "Kulaklık: bağlı değil");
-    }
-
-    #[test]
-    fn present_unavailable_is_gray_dash() {
-        let s = present("Fare", &Reading::Unavailable, Some(40));
-        assert_eq!((s.text.as_str(), s.color), (DASH, GRAY));
-        assert_eq!(s.tooltip, "Fare: alıcı bulunamadı");
+    fn inactive_without_history_is_dash() {
+        assert_eq!(present(Kind::Mouse, None, None), shown("–", Tone::Inactive));
     }
 }

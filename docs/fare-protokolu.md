@@ -1,6 +1,6 @@
 # Waizowl OGM Pro V2 — pil protokolü
 
-Kaynak: Waizowl Driver Software 1.0.5.1 (`DeviceDriver.exe`) Frida ile dinlendi, 2026-11-18.
+Kaynak: Waizowl Driver Software 1.0.5.1 (`DeviceDriver.exe`) `tools/hidspy` (Frida) ile dinlendi, 2026-11-18.
 Sadece dinlendi; kayıt sırasında bizim tarafımızdan cihaza hiçbir şey gönderilmedi.
 
 ## Cihaz

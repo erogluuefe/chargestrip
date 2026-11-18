@@ -1,18 +1,26 @@
+//! Pil Göstergesi: kablosuz kulaklık, fare vb. cihazların pil durumunu Windows'ta taskbar'da,
+//! macOS'ta menü çubuğunda gösterir.
+//!
+//! Katmanlar:
+//! - `devices`: cihaz sürücüleri (USB HID üzerinden salt-okuma pil sorguları)
+//! - `poller`:  arka planda periyodik sorgu
+//! - `model`:   platformdan bağımsız gösterim kararları
+//! - `win` / `mac`: platforma özgü arayüz
+
 #![windows_subsystem = "windows"]
 
-mod autostart;
 mod devices;
-mod icon;
 mod model;
 mod poller;
-#[cfg(windows)]
-mod taskbar;
-mod tray;
 
-#[cfg_attr(windows, path = "platform/windows.rs")]
-#[cfg_attr(target_os = "macos", path = "platform/macos.rs")]
-mod platform;
+#[cfg(target_os = "macos")]
+mod mac;
+#[cfg(windows)]
+mod win;
 
 fn main() {
-    platform::run();
+    #[cfg(windows)]
+    win::run();
+    #[cfg(target_os = "macos")]
+    mac::run();
 }
