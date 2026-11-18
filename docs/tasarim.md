@@ -15,6 +15,7 @@ sürekli görünen, olabildiğince az kaynak yiyen küçük bir uygulama ile gö
 | NuPhy Air75 HE (klavye) | kablolu | 19F5:6120 | kapsam dışı |
 
 ## Hedefler
+- **Güncelleme 2026-11-18 (kullanıcı kararı):** Windows'ta görünüm, taskbar'ın içine okun soluna yerleşen şerit: 🎧 75%  🖱 64% (Segoe Fluent Icons + Segoe UI). Şerit kurulamazsa tepsi simgeleri (soluk silüet + büyük rakam). Mac'te menü çubuğu.
 - Cihaz başına bir taskbar simgesi, simgenin üstünde yüzde rakamı (🎧 82 · 🖱 45).
 - Üzerine gelince açıklama: cihaz adı, yüzde, "şarj oluyor" / "bağlı değil".
 - Düşük pil uyarısı sadece renkle: ≤%15 simge kırmızı. Bildirim yok (kullanıcı kararı).
