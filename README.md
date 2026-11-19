@@ -11,8 +11,13 @@ Kablosuz kulaklık, fare vb. cihazların pil durumunu gösterir:
 
 - **Windows:** `Chargestrip-Setup-x.y.z.exe`. Yönetici izni istemez. SmartScreen uyarısında
   "Ek bilgi → Yine de çalıştır".
-- **macOS:** `Chargestrip-macOS-x.y.z.dmg`. Açıp Chargestrip'i Applications'a sürükle. İlk açılış
-  engellenirse Sistem Ayarları → Gizlilik ve Güvenlik → "Yine de Aç".
+- **macOS (önerilen):** Terminal'de tek satır; indirir, Applications'a kurar ve açar. Uyarı çıkmaz:
+  ```
+  curl -fsSL https://raw.githubusercontent.com/erogluuefe/chargestrip/main/scripts/install-mac.sh | sh
+  ```
+- **macOS (elle):** `Chargestrip-macOS-x.y.z.dmg`'yi aç, Chargestrip'i Applications'a sürükle.
+  Uygulama Apple'a kayıtlı bir geliştirici sertifikasıyla imzalı olmadığından tarayıcıyla indirilince
+  ilk açılış engellenir: Sistem Ayarları → Gizlilik ve Güvenlik → "Yine de Aç".
 
 Sonraki sürümler uygulamanın sağ tık menüsünden kurulur (aşağıda "Güncelleme").
 
