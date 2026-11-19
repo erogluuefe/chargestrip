@@ -1,6 +1,6 @@
 [package]
 name = "chargestrip"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "Kablosuz cihazların pil durumunu Windows taskbar'ında / macOS menü çubuğunda gösterir"
 license = "GPL-3.0-or-later"
@@ -27,6 +27,7 @@ windows-sys = { version = "0.61", features = [
 # Koşulsuz: build.rs her makinede derlenir; manifesti yalnızca Windows hedefinde gömer.
 [build-dependencies]
 embed-manifest = "1.4"
+winresource = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tao = "0.34"

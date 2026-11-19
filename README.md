@@ -30,7 +30,7 @@ Güncelleme: GitHub'daki son sürüm günde bir kez kontrol edilir; daha yenisi 
 sistemle gelen `curl` kullanılır, ek kütüphane yok. Uygulamanın internete tek çıkışı budur
 (`api.github.com` ve indirilen Release dosyası); hiçbir veri gönderilmez.
 
-Hafiflik: tek dosya ~330 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
+Hafiflik: tek dosya ~360 KB (simge dahil), ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
 
 ## Desteklenen cihazlar
 
@@ -104,7 +104,8 @@ src/
     strip.rs         taskbar şeridi (çizim, konum, sağ tık menüsü)
     autostart.rs     HKCU\…\Run
   mac.rs             menü çubuğu öğesi + LaunchAgent
-build.rs             Windows uygulama bildirimi (katmanlı alt pencere ve DPI için)
+build.rs             Windows: uygulama bildirimi (katmanlı alt pencere ve DPI), simge ve sürüm bilgisi
+assets/              logo (icon.ico, icon.png) ve onu üreten make_icon.py
 installer/           Inno Setup kurulum tanımı
 scripts/             macOS tek satırlık kurulum betiği
 .github/workflows/   sürüm etiketiyle otomatik derleme ve Release

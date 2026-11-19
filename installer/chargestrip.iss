@@ -30,6 +30,7 @@ OutputBaseFilename=Chargestrip-Setup-{#AppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 
