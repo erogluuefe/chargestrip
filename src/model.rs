@@ -34,7 +34,7 @@ pub enum Tone {
 }
 
 /// Bu değer ve altı düşük pil sayılır.
-pub const LOW_PERCENT: u8 = 15;
+const LOW_PERCENT: u8 = 15;
 
 /// Bir cihazın ekranda gösterilecek hali.
 #[derive(Clone, PartialEq, Eq, Debug)]

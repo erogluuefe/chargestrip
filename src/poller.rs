@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::time::Duration;
 
-pub const INTERVAL: Duration = Duration::from_secs(60);
+const INTERVAL: Duration = Duration::from_secs(60);
 
 /// Döngüyü başlatır; her turun sonucu `notify` ile iletilir (takılı alıcısı olan cihazlar
 /// `DRIVERS` sırasıyla, ardından bağlı Bluetooth cihazlar). Dönen göndericiye `()` yollamak

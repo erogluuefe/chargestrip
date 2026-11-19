@@ -22,7 +22,7 @@ const ASSET: (&str, &str) = ("Chargestrip-Setup-", ".exe");
 const ASSET: (&str, &str) = ("Chargestrip-macOS-", ".dmg");
 
 /// Yayımlanmış, çalışandan yeni bir sürüm.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Update {
     pub version: String,
     url: String,
