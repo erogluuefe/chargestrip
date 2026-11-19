@@ -1,6 +1,6 @@
 //! macOS arayüzü: menü çubuğunda tek bir durum öğesi, başlığı ör. "🎧 75%  🖱 64% ⚡".
 //! Menü çubuğu öğesi NSApplication olay döngüsü ister; bunu `tao` sağlar. Dock'ta simge çıkmaz.
-//! Not: Bu dosya Windows'ta yazıldı; macOS'ta henüz derlenip denenmedi.
+//! Not: CI'da derleniyor; macOS'ta ilk kez 2026-11-19'da (alıcısız) çalıştırıldı.
 
 use crate::model::{Kind, Shown, Tone};
 use crate::poller;
@@ -24,7 +24,11 @@ fn emoji(kind: Kind) -> &'static str {
 }
 
 /// Menü çubuğu başlığı. Başlık tek renk olduğundan durum sembolle anlatılır.
+/// Hiç alıcı takılı değilse "🔋 –": öğe kaybolmasın, uygulamanın çalıştığı görünsün.
 fn title(items: &[Shown]) -> String {
+    if items.is_empty() {
+        return "🔋 –".into();
+    }
     let parts: Vec<String> = items
         .iter()
         .map(|s| {

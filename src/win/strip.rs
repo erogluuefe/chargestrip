@@ -51,6 +51,10 @@ fn glyph(kind: Kind) -> &'static str {
     }
 }
 
+/// Hiç alıcı takılı değilken gösterilen soluk boş pil ikonu (Battery0): şerit kaybolmasın,
+/// uygulamanın çalıştığı ve sağ tık menüsü görünsün.
+const NO_DEVICE_GLYPH: &str = "\u{E850}";
+
 /// (ikon rengi, yazı rengi). Kapalı/uykudaki cihazın tamamı soluk görünür.
 fn colors(tone: Tone, light_taskbar: bool) -> (Rgb, Rgb) {
     let fg = if light_taskbar { LIGHT_TASKBAR_FG } else { DARK_TASKBAR_FG };
@@ -190,10 +194,11 @@ impl Strip {
 
     fn draw(&mut self, env: Env) {
         self.drawn = Some(env);
-        if self.items.is_empty() {
-            unsafe { ShowWindow(self.hwnd, SW_HIDE) };
-            return;
-        }
+        let entries: Vec<(&str, &str, Tone)> = if self.items.is_empty() {
+            vec![(NO_DEVICE_GLYPH, "–", Tone::Inactive)]
+        } else {
+            self.items.iter().map(|s| (glyph(s.kind), s.text.as_str(), s.tone)).collect()
+        };
         let scale = |v: i32| (v * env.dpi as i32 + 48) / 96;
         let height = env.taskbar_height;
 
@@ -205,14 +210,14 @@ impl Strip {
             // Yerleşim: [ikon] [yazı]   [ikon] [yazı] …
             let mut parts: Vec<Part> = Vec::new();
             let mut x = scale(EDGE);
-            for (i, item) in self.items.iter().enumerate() {
+            for (i, &(icon, label, tone)) in entries.iter().enumerate() {
                 if i > 0 {
                     x += scale(ITEM_GAP);
                 }
-                let (icon_rgb, text_rgb) = colors(item.tone, env.light);
+                let (icon_rgb, text_rgb) = colors(tone, env.light);
                 for (font, text, rgb, gap) in [
-                    (icon_font, glyph(item.kind), icon_rgb, scale(ICON_GAP)),
-                    (text_font, item.text.as_str(), text_rgb, 0),
+                    (icon_font, icon, icon_rgb, scale(ICON_GAP)),
+                    (text_font, label, text_rgb, 0),
                 ] {
                     let text: Vec<u16> = text.encode_utf16().collect();
                     let size = measure(dc, font, &text);
