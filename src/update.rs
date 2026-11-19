@@ -24,6 +24,9 @@ pub struct Update {
     url: String,
 }
 
+/// Çalışan sürüm.
+pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
+
 /// Arka planda günde bir kez denetler; yeni sürüm bulunca `notify` bir kez çağrılır ve biter.
 pub fn spawn(notify: impl Fn(Update) + Send + 'static) {
     let _ = std::thread::Builder::new()
@@ -31,13 +34,19 @@ pub fn spawn(notify: impl Fn(Update) + Send + 'static) {
         .stack_size(128 * 1024)
         .spawn(move || loop {
             remove_old_downloads();
-            let json = curl(&["-fsSL", "--max-time", "20", LATEST]).unwrap_or_default();
-            if let Some(update) = parse(&json, env!("CARGO_PKG_VERSION")) {
+            if let Ok(Some(update)) = check() {
                 notify(update);
                 return;
             }
             std::thread::sleep(CHECK_EVERY);
         });
+}
+
+/// Hemen denetler (menüden "Güncellemeleri denetle"; genelde bir saniyenin altında).
+/// `Ok(None)`: güncel. `Err`: GitHub'a ulaşılamadı.
+pub fn check() -> Result<Option<Update>, ()> {
+    let json = curl(&["-fsSL", "--max-time", "20", LATEST]).ok_or(())?;
+    Ok(parse(&json, CURRENT))
 }
 
 /// Önceki güncellemelerden geçici klasörde kalan kurulum dosyalarını siler. Kurulum hâlâ

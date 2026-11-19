@@ -4,7 +4,7 @@
 //! Ana iş parçacığı yalnızca mesaj bekler. Uyandıran şeyler:
 //! - `WM_APP`: sorgu iş parçacığı yeni sonuç ya da güncelleme denetimi yeni sürüm gönderdi
 //! - `WM_TIMER` (2 sn): şeridin konumu/teması değişti mi, Explorer yeniden başladı mı
-//! - `strip::WM_APP_MENU`: şeride sağ tıklandı
+//! - `strip::WM_APP_MENU`: şeride tıklandı (sol ya da sağ)
 
 mod autostart;
 mod strip;
@@ -76,12 +76,30 @@ pub fn run() {
                 // İndirme birkaç saniye sürer (~2 MB); kurulum başlayınca çıkılır, kurulum
                 // uygulamayı yeniden açar. İndirme başarısızsa menüde kalır, tekrar denenebilir.
                 Some(Command::Update) => {
-                    if let Some(file) = pending.as_ref().and_then(update::download) {
-                        if update::install(&file) {
-                            return;
-                        }
+                    if pending.as_ref().is_some_and(install) {
+                        return;
                     }
                 }
+                // Elle denetim: sonuç bir pencereyle söylenir; yeni sürüm varsa hemen kurmak sorulur.
+                Some(Command::CheckUpdate) => match update::check() {
+                    Ok(Some(u)) => {
+                        let question = format!(
+                            "Chargestrip {} yayımlandı (kurulu: {}).\nŞimdi güncellensin mi?",
+                            u.version,
+                            update::CURRENT
+                        );
+                        if s.message(&question, true) && install(&u) {
+                            return;
+                        }
+                        pending = Some(u);
+                    }
+                    Ok(None) => {
+                        s.message(&format!("Chargestrip güncel ({}).", update::CURRENT), false);
+                    }
+                    Err(()) => {
+                        s.message("Güncelleme denetlenemedi. İnternet bağlantısını kontrol edip tekrar dene.", false);
+                    }
+                },
                 None => {}
             }
         }
@@ -96,6 +114,11 @@ pub fn run() {
             }
         }
     }
+}
+
+/// Yeni sürümü indirip kurulumu başlatır; başladıysa `true` (çağıran hemen çıkmalı).
+fn install(u: &Update) -> bool {
+    update::download(u).is_some_and(|file| update::install(&file))
 }
 
 /// Win32 API'leri için sonu sıfırla biten UTF-16 dizgi.

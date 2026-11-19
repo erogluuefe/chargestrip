@@ -17,7 +17,7 @@ use windows_sys::Win32::System::Threading::GetCurrentThreadId;
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-/// Şeride sağ tıklanınca ana döngüye gönderilen iş parçacığı mesajı.
+/// Şeride tıklanınca (sol ya da sağ) ana döngüye gönderilen iş parçacığı mesajı.
 pub const WM_APP_MENU: u32 = WM_APP + 1;
 
 /// Sağ tık menüsünden seçilen komut.
@@ -27,6 +27,7 @@ pub enum Command {
     ToggleAutostart = 2,
     Quit = 3,
     Update = 4,
+    CheckUpdate = 5,
 }
 
 type Rgb = [u8; 3];
@@ -87,7 +88,7 @@ fn window_rect(hwnd: HWND) -> RECT {
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
-        WM_RBUTTONUP => {
+        WM_LBUTTONUP | WM_RBUTTONUP => {
             PostThreadMessageW(GetCurrentThreadId(), WM_APP_MENU, 0, 0);
             0
         }
@@ -285,7 +286,10 @@ impl Strip {
             AppendMenuW(m, MF_STRING, Command::Refresh as usize, wide("Yenile").as_ptr());
             AppendMenuW(m, MF_STRING | check, Command::ToggleAutostart as usize, wide("Açılışta başlat").as_ptr());
             AppendMenuW(m, MF_SEPARATOR, 0, null());
-            let version = wide(concat!("Chargestrip ", env!("CARGO_PKG_VERSION")));
+            if update.is_none() {
+                AppendMenuW(m, MF_STRING, Command::CheckUpdate as usize, wide("Güncellemeleri denetle").as_ptr());
+            }
+            let version = wide(&format!("Chargestrip {}", crate::update::CURRENT));
             AppendMenuW(m, MF_STRING | MF_GRAYED, 0, version.as_ptr()); // yalnızca bilgi
             AppendMenuW(m, MF_STRING, Command::Quit as usize, wide("Çıkış").as_ptr());
             let mut pt = POINT { x: 0, y: 0 };
@@ -296,9 +300,22 @@ impl Strip {
             let id = TrackPopupMenu(m, flags, pt.x, pt.y, 0, self.owner, null());
             PostMessageW(self.owner, WM_NULL, 0, 0);
             DestroyMenu(m);
-            [Command::Refresh, Command::ToggleAutostart, Command::Quit, Command::Update]
+            [Command::Refresh, Command::ToggleAutostart, Command::Quit, Command::Update, Command::CheckUpdate]
                 .into_iter()
                 .find(|&c| c as i32 == id)
+        }
+    }
+}
+
+impl Strip {
+    /// Kullanıcının istediği bir işlemin sonucunu küçük bir pencereyle söyler. `ask`: Evet/Hayır
+    /// sorar ve "Evet"i döndürür; değilse yalnızca Tamam düğmesi vardır.
+    pub fn message(&self, text: &str, ask: bool) -> bool {
+        let buttons = if ask { MB_YESNO | MB_ICONQUESTION } else { MB_OK | MB_ICONINFORMATION };
+        let (text, title) = (wide(text), wide("Chargestrip"));
+        unsafe {
+            SetForegroundWindow(self.owner);
+            MessageBoxW(self.owner, text.as_ptr(), title.as_ptr(), buttons | MB_SETFOREGROUND) == IDYES
         }
     }
 }

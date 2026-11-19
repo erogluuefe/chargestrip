@@ -22,11 +22,11 @@ Kablosuz kulaklık, fare vb. cihazların pil durumunu gösterir:
 Sonraki sürümler uygulamanın sağ tık menüsünden kurulur (aşağıda "Güncelleme").
 
 Renkler (Windows): ≤%15 kırmızı, şarjda yeşil, cihaz kapalı/uykuda ise gri (varsa son değerle).
-Sağ tık: Yenile · Açılışta başlat · sürüm numarası · Çıkış. Sorgu aralığı 60 sn. Hiç alıcı takılı değilse soluk bir
+Sol ya da sağ tık: Yenile · Açılışta başlat · Güncellemeleri denetle · sürüm numarası · Çıkış. Sorgu aralığı 60 sn. Hiç alıcı takılı değilse soluk bir
 pil ikonu görünür.
 
-Güncelleme: GitHub'daki son sürüm günde bir kez kontrol edilir; daha yenisi varsa menünün başında
-"Güncelle (x.y.z)" çıkar, seçilince indirilip sessizce kurulur ve uygulama yeniden açılır. Ağ için
+Güncelleme: GitHub'daki son sürüm açılışta ve günde bir kez kontrol edilir (menüden "Güncellemeleri
+denetle" ile hemen de); daha yenisi varsa menünün başında "Güncelle (x.y.z)" çıkar, seçilince indirilip sessizce kurulur ve uygulama yeniden açılır. Ağ için
 sistemle gelen `curl` kullanılır, ek kütüphane yok. Uygulamanın internete tek çıkışı budur
 (`api.github.com` ve indirilen Release dosyası); hiçbir veri gönderilmez.
 

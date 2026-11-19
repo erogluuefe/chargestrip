@@ -54,9 +54,23 @@ struct Ui {
     menu: Menu,
     refresh: MenuItem,
     autostart: CheckMenuItem,
+    /// "Güncellemeleri denetle"; elle denetimin sonucu da bu satırda yazar.
+    check: MenuItem,
     quit: MenuItem,
     /// Yayımlanmış yeni sürüm ve menünün başına eklenen "Güncelle" öğesi.
     update: Option<(Update, MenuItem)>,
+}
+
+impl Ui {
+    /// Yeni sürümü menünün başına "Güncelle (x.y.z)" olarak ekler (bir kez).
+    fn offer(&mut self, u: Update) {
+        if self.update.is_some() {
+            return;
+        }
+        let item = MenuItem::new(format!("Güncelle ({})", u.version), true, None);
+        let _ = self.menu.prepend_items(&[&item, &PredefinedMenuItem::separator()]);
+        self.update = Some((u, item));
+    }
 }
 
 pub fn run() {
@@ -77,14 +91,16 @@ pub fn run() {
             Event::NewEvents(StartCause::Init) => {
                 let refresh_item = MenuItem::new("Yenile", true, None);
                 let autostart = CheckMenuItem::new("Açılışta başlat", true, autostart::is_enabled(), None);
+                let check = MenuItem::new("Güncellemeleri denetle", true, None);
                 let quit = MenuItem::new("Çıkış", true, None);
                 // Yalnızca bilgi: soluk, tıklanmaz.
-                let version = MenuItem::new(concat!("Chargestrip ", env!("CARGO_PKG_VERSION")), false, None);
+                let version = MenuItem::new(format!("Chargestrip {}", update::CURRENT), false, None);
                 let menu = Menu::new();
                 let _ = menu.append_items(&[
                     &refresh_item,
                     &autostart,
                     &PredefinedMenuItem::separator(),
+                    &check,
                     &version,
                     &quit,
                 ]);
@@ -93,7 +109,7 @@ pub fn run() {
                     *flow = ControlFlow::Exit;
                     return;
                 };
-                ui = Some(Ui { icon, menu, refresh: refresh_item, autostart, quit, update: None });
+                ui = Some(Ui { icon, menu, refresh: refresh_item, autostart, check, quit, update: None });
                 let p = proxy.clone();
                 refresh = Some(poller::spawn(move |items| {
                     let _ = p.send_event(AppEvent::Readings(items));
@@ -110,13 +126,11 @@ pub fn run() {
             }
             Event::UserEvent(AppEvent::NewVersion(u)) => {
                 if let Some(ui) = &mut ui {
-                    let item = MenuItem::new(format!("Güncelle ({})", u.version), true, None);
-                    let _ = ui.menu.prepend_items(&[&item, &PredefinedMenuItem::separator()]);
-                    ui.update = Some((u, item));
+                    ui.offer(u);
                 }
             }
             Event::UserEvent(AppEvent::Menu(e)) => {
-                let Some(ui) = &ui else { return };
+                let Some(ui) = &mut ui else { return };
                 if e.id == *ui.refresh.id() {
                     if let Some(r) = &refresh {
                         let _ = r.send(());
@@ -125,6 +139,16 @@ pub fn run() {
                     autostart::set_enabled(ui.autostart.is_checked());
                 } else if e.id == *ui.quit.id() {
                     *flow = ControlFlow::Exit;
+                } else if e.id == *ui.check.id() {
+                    // Elle denetim; sonuç menüde yazar, yeni sürüm varsa en üstte "Güncelle" çıkar.
+                    match update::check() {
+                        Ok(Some(u)) => {
+                            ui.check.set_text(format!("Yeni sürüm var: {} (en üstte)", u.version));
+                            ui.offer(u);
+                        }
+                        Ok(None) => ui.check.set_text(format!("Güncel ({}) ✓ — tekrar denetle", update::CURRENT)),
+                        Err(()) => ui.check.set_text("Denetlenemedi — tekrar dene"),
+                    }
                 } else if let Some((u, item)) = &ui.update {
                     // İndirme birkaç saniye sürer; kurulum betiği bu süreç çıkınca paketi değiştirip
                     // yeniden açar. Başarısızsa öğe menüde kalır, tekrar denenebilir.
