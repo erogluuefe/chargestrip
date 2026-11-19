@@ -89,6 +89,7 @@ src/
   mac.rs             menü çubuğu öğesi + LaunchAgent
 build.rs             Windows uygulama bildirimi (katmanlı alt pencere ve DPI için)
 installer/           Inno Setup kurulum tanımı
+scripts/             macOS tek satırlık kurulum betiği
 .github/workflows/   sürüm etiketiyle otomatik derleme ve Release
 tools/hidspy/        protokol çözmek için HID trafik dinleyicisi
 ```
