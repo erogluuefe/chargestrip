@@ -28,7 +28,7 @@ pil ikonu görünür.
 Güncelleme: GitHub'daki son sürüm açılışta ve günde bir kez kontrol edilir (menüden "Güncellemeleri
 denetle" ile hemen de); daha yenisi varsa menünün başında "Güncelle (x.y.z)" çıkar, seçilince indirilip sessizce kurulur ve uygulama yeniden açılır. Ağ için
 sistemle gelen `curl` kullanılır, ek kütüphane yok. Uygulamanın internete tek çıkışı budur
-(`api.github.com` ve indirilen Release dosyası); hiçbir veri gönderilmez.
+(GitHub'daki sürümler sayfası ve indirilen Release dosyası); hiçbir veri gönderilmez.
 
 Hafiflik: tek dosya ~360 KB (simge dahil), ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
 

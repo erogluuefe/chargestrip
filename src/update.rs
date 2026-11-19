@@ -1,21 +1,25 @@
 //! Güncelleme: GitHub'daki en son sürümü günde bir kez sorar; daha yeniyse arayüze bildirir.
 //! İndirme ve kurma yalnızca kullanıcı menüden "Güncelle"yi seçince yapılır.
 //!
-//! Ağ için ek kütüphane (TLS, HTTP, JSON) yok: Windows 10+ ve macOS'ta hazır gelen `curl`
-//! çalıştırılır, cevaptan gereken iki alan elle okunur. Böylece boyut ve bellek değişmez.
+//! Son sürüm, GitHub'ın `releases/latest` adresinin yönlendirdiği etiketten okunur
+//! (`…/releases/tag/v1.2.3`); GitHub API'sinin saatlik istek sınırına takılmaz. Dosya adı
+//! sürümden türetilir (sürüm akışı her sürümde aynı adlarla yükler).
+//!
+//! Ağ için ek kütüphane (TLS, HTTP) yok: Windows 10+ ve macOS'ta hazır gelen `curl` çalıştırılır.
+//! Böylece boyut ve bellek değişmez.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-const LATEST: &str = "https://api.github.com/repos/erogluuefe/chargestrip/releases/latest";
+const RELEASES: &str = "https://github.com/erogluuefe/chargestrip/releases";
 const CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
-/// Bu platformun Release dosyası (kurulum programı / disk kalıbı).
+/// Bu platformun Release dosyası (kurulum programı / disk kalıbı): ön ek + sürüm + uzantı.
 #[cfg(windows)]
-const ASSET_SUFFIX: &str = ".exe";
+const ASSET: (&str, &str) = ("Chargestrip-Setup-", ".exe");
 #[cfg(target_os = "macos")]
-const ASSET_SUFFIX: &str = ".dmg";
+const ASSET: (&str, &str) = ("Chargestrip-macOS-", ".dmg");
 
 /// Yayımlanmış, çalışandan yeni bir sürüm.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -45,8 +49,9 @@ pub fn spawn(notify: impl Fn(Update) + Send + 'static) {
 /// Hemen denetler (menüden "Güncellemeleri denetle"; genelde bir saniyenin altında).
 /// `Ok(None)`: güncel. `Err`: GitHub'a ulaşılamadı.
 pub fn check() -> Result<Option<Update>, ()> {
-    let json = curl(&["-fsSL", "--max-time", "20", LATEST]).ok_or(())?;
-    Ok(parse(&json, CURRENT))
+    // Yalnızca başlıklar (-I), yönlendirme izlenmeden: "location: …/releases/tag/v1.2.3".
+    let headers = curl(&["-fsSI", "--max-time", "20", &format!("{RELEASES}/latest")]).ok_or(())?;
+    Ok(parse(&headers, CURRENT))
 }
 
 /// Önceki güncellemelerden geçici klasörde kalan kurulum dosyalarını siler. Kurulum hâlâ
@@ -56,7 +61,7 @@ fn remove_old_downloads() {
     for entry in entries.flatten() {
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if name.starts_with("Chargestrip-") && name.ends_with(ASSET_SUFFIX) {
+        if name.starts_with(ASSET.0) && name.ends_with(ASSET.1) {
             let _ = std::fs::remove_file(entry.path());
         }
     }
@@ -115,29 +120,19 @@ fn curl(args: &[&str]) -> Option<String> {
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// GitHub "latest release" cevabından, `current`'tan yeniyse sürüm ve bu platformun dosyası.
-fn parse(json: &str, current: &str) -> Option<Update> {
-    let version = string_values(json, "tag_name").next()?.trim_start_matches('v').to_string();
-    if !newer(&version, current) {
+/// `releases/latest` cevabının başlıklarından, `current`'tan yeniyse sürüm ve bu platformun dosyası.
+fn parse(headers: &str, current: &str) -> Option<Update> {
+    let location = headers.lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.trim().eq_ignore_ascii_case("location").then(|| value.trim())
+    })?;
+    let version = location.rsplit_once("/tag/v")?.1.trim_end_matches('/');
+    if !newer(version, current) {
         return None;
     }
-    let url = string_values(json, "browser_download_url").find(|u| u.ends_with(ASSET_SUFFIX))?;
-    Some(Update { version, url: url.to_string() })
-}
-
-/// JSON'da `"key": "değer"` biçimindeki tüm değerler (kaçış karakteri içermeyenler yeterli:
-/// sürüm etiketleri ve dosya adresleri).
-fn string_values<'a>(json: &'a str, key: &str) -> impl Iterator<Item = &'a str> {
-    let needle = format!("\"{key}\"");
-    let values: Vec<&'a str> = json
-        .match_indices(&needle)
-        .filter_map(|(i, _)| {
-            let rest = json[i + needle.len()..].trim_start().strip_prefix(':')?.trim_start();
-            let rest = rest.strip_prefix('"')?;
-            Some(&rest[..rest.find('"')?])
-        })
-        .collect();
-    values.into_iter()
+    let (prefix, ext) = ASSET;
+    let url = format!("{RELEASES}/download/v{version}/{prefix}{version}{ext}");
+    Some(Update { version: version.to_string(), url })
 }
 
 /// "0.10.1" > "0.9.3" gibi sayısal karşılaştırma; sayı olmayan sürüm hiçbir zaman yeni sayılmaz.
@@ -153,28 +148,24 @@ fn newer(candidate: &str, current: &str) -> bool {
 mod tests {
     use super::*;
 
-    const JSON: &str = r#"{
-      "tag_name": "v0.3.0",
-      "assets": [
-        {"name": "Chargestrip-macOS-0.3.0.dmg",
-         "browser_download_url": "https://github.com/erogluuefe/chargestrip/releases/download/v0.3.0/Chargestrip-macOS-0.3.0.dmg"},
-        {"name": "Chargestrip-Setup-0.3.0.exe",
-         "browser_download_url":"https://github.com/erogluuefe/chargestrip/releases/download/v0.3.0/Chargestrip-Setup-0.3.0.exe"}
-      ]
-    }"#;
+    const HEADERS: &str = "HTTP/1.1 302 Found
+Server: GitHub.com
+        Location: https://github.com/erogluuefe/chargestrip/releases/tag/v0.3.0
+
+";
 
     #[test]
     fn finds_newer_release_for_this_platform() {
-        let u = parse(JSON, "0.2.4").unwrap();
+        let u = parse(HEADERS, "0.2.4").unwrap();
         assert_eq!(u.version, "0.3.0");
-        assert!(u.url.ends_with(ASSET_SUFFIX));
-        assert!(u.url.starts_with("https://github.com/erogluuefe/chargestrip/releases/download/v0.3.0/"));
+        let (prefix, ext) = ASSET;
+        assert_eq!(u.url, format!("{RELEASES}/download/v0.3.0/{prefix}0.3.0{ext}"));
     }
 
     #[test]
     fn ignores_same_or_older_release() {
-        assert_eq!(parse(JSON, "0.3.0"), None);
-        assert_eq!(parse(JSON, "0.10.0"), None);
+        assert_eq!(parse(HEADERS, "0.3.0"), None);
+        assert_eq!(parse(HEADERS, "0.10.0"), None);
     }
 
     #[test]
@@ -186,9 +177,12 @@ mod tests {
     }
 
     #[test]
-    fn missing_fields_or_garbage() {
+    fn no_release_or_garbage() {
         assert_eq!(parse("", "0.1.0"), None);
-        assert_eq!(parse(r#"{"message":"Not Found"}"#, "0.1.0"), None);
-        assert_eq!(parse(r#"{"tag_name":"v9.0.0","assets":[]}"#, "0.1.0"), None);
+        // Hiç sürüm yoksa GitHub sürümler sayfasına yönlendirir.
+        assert_eq!(parse("location: https://github.com/erogluuefe/chargestrip/releases
+", "0.1.0"), None);
+        assert_eq!(parse("location: https://github.com/x/y/releases/tag/vNEXT
+", "0.1.0"), None);
     }
 }
