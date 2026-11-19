@@ -1,8 +1,11 @@
-//! Cihaz sürücüleri.
+//! Cihaz sürücüleri. İki kaynak var, ikisi de aynı [`Reading`] listesini üretir:
 //!
-//! Her sürücü bir [`Driver`] tanımıdır: hangi USB alıcısına (VID/PID + usage page) bağlanılacağı
-//! ve açılan HID arayüzünden pilin nasıl okunacağı. Arayüz katmanları cihaz sayısından
-//! bağımsızdır; yeni cihaz eklemek için:
+//! - **USB alıcılı cihazlar:** her model bir [`Driver`] tanımıdır: hangi alıcıya (VID/PID + usage
+//!   page) bağlanılacağı ve açılan HID arayüzünden pilin nasıl okunacağı.
+//! - **Bluetooth:** işletim sisteminin bağlı cihazlar için zaten tuttuğu pil seviyesi
+//!   ([`bluetooth`]); model başına kod gerekmez.
+//!
+//! Arayüz katmanları cihaz sayısından bağımsızdır; yeni bir USB alıcılı cihaz eklemek için:
 //!
 //! 1. `src/devices/<marka_model>.rs` dosyasını oluştur: `pub const DRIVER: Driver` ve
 //!    `fn read(...)`. Protokolü kayıtlardan alınmış çerçevelerle birim testine bağla.
@@ -12,6 +15,7 @@
 //! komut asla gönderilmez. Protokol çözme yolu ve araçları için: README.md.
 
 mod arctis_nova7;
+mod bluetooth;
 mod waizowl_ogm;
 
 use crate::model::{Battery, Kind};
@@ -33,15 +37,31 @@ pub struct Driver {
     pub read: fn(dev: &HidDevice, pid: u16) -> Option<Battery>,
 }
 
-/// Desteklenen cihazlar; arayüzde bu sırayla gösterilir.
+/// Bir cihazın bir turdaki okuması.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reading {
+    /// Turlar arasında aynı cihazı tanımak için kalıcı anahtar (son değeri hatırlamak için).
+    pub key: String,
+    pub kind: Kind,
+    /// `None`: alıcı takılı ama cihaz kapalı/uykuda ya da geçerli cevap gelmedi.
+    pub battery: Option<Battery>,
+}
+
+/// Desteklenen USB alıcılı cihazlar; arayüzde bu sırayla, Bluetooth cihazlardan önce gösterilir.
 pub const DRIVERS: &[Driver] = &[arctis_nova7::DRIVER, waizowl_ogm::DRIVER];
 
 /// Bir cevabın beklenebileceği en uzun süre.
 const TIMEOUT: Duration = Duration::from_millis(1000);
 
-/// Takılı alıcıları sorgular. Dönen her öğe: (`DRIVERS` içindeki sıra, okuma).
-/// Alıcısı takılı olmayan sürücüler listede yer almaz.
-pub fn poll(api: &mut HidApi) -> Vec<(usize, Option<Battery>)> {
+/// Takılı alıcıları ve bağlı Bluetooth cihazları sorgular. Alıcısı takılı olmayan sürücüler ve
+/// bağlı olmayan Bluetooth cihazlar listede yer almaz. `api` yoksa (HID açılamadı) yalnızca Bluetooth.
+pub fn poll(api: Option<&mut HidApi>) -> Vec<Reading> {
+    let mut readings = api.map(poll_receivers).unwrap_or_default();
+    readings.extend(bluetooth::poll());
+    readings
+}
+
+fn poll_receivers(api: &mut HidApi) -> Vec<Reading> {
     // Alıcılar takılıp çıkarılabildiği için liste her turda yenilenir.
     if api.refresh_devices().is_err() {
         return Vec::new();
@@ -56,7 +76,7 @@ pub fn poll(api: &mut HidApi) -> Vec<(usize, Option<Battery>)> {
                     && info.usage_page() == d.usage_page
             })?;
             let battery = info.open_device(api).ok().and_then(|dev| (d.read)(&dev, info.product_id()));
-            Some((i, battery))
+            Some(Reading { key: format!("usb:{i}"), kind: d.kind, battery })
         })
         .collect()
 }
@@ -85,7 +105,7 @@ pub(crate) fn exchange<T>(
 }
 
 /// Gerçek donanımla deneme: `cargo test probe -- --ignored --nocapture`
-/// Üreticiye özel (usage page ≥ 0xFF00) tüm HID arayüzlerini ve sürücülerin okumalarını yazdırır;
+/// Üreticiye özel (usage page ≥ 0xFF00) tüm HID arayüzlerini ve tüm okumaları (Bluetooth dahil) yazdırır;
 /// yeni bir cihazın VID/PID/usage page değerlerini bulmak için de kullanılır.
 #[cfg(test)]
 mod probe {
@@ -102,8 +122,8 @@ mod probe {
                 d.product_string().unwrap_or_default()
             );
         }
-        for (i, battery) in poll(&mut api) {
-            println!("{:?}: {battery:?}", DRIVERS[i].kind);
+        for r in poll(Some(&mut api)) {
+            println!("{} {:?}: {:?}", r.key, r.kind, r.battery);
         }
     }
 }

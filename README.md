@@ -30,7 +30,7 @@ Güncelleme: GitHub'daki son sürüm günde bir kez kontrol edilir; daha yenisi 
 sistemle gelen `curl` kullanılır, ek kütüphane yok. Uygulamanın internete tek çıkışı budur
 (`api.github.com` ve indirilen Release dosyası); hiçbir veri gönderilmez.
 
-Hafiflik: tek dosya ~300 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
+Hafiflik: tek dosya ~320 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
 
 ## Desteklenen cihazlar
 
@@ -38,6 +38,11 @@ Hafiflik: tek dosya ~300 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). A
 |---|---|---|
 | SteelSeries Arctis Nova 7P | `1038:220A`, `22A7`, `2298` | Durum isteği `B0` |
 | Waizowl OGM Pro V2 | `1915:0728` ("OGM 8K") | Kendi kaydımız: [docs/fare-protokolu.md](docs/fare-protokolu.md) |
+| **Bluetooth cihazlar** (kulaklık, klavye, fare, kol…) | — | İşletim sisteminin bildiği pil seviyesi: Windows'ta aygıt özelliği, macOS'ta `system_profiler` (5 dakikada bir) |
+
+Bluetooth cihazlar yalnızca bağlıyken ve işletim sistemi pil seviyesini biliyorsa görünür (Windows
+Ayarlar → Bluetooth'ta ya da macOS Bluetooth menüsünde yüzde görünüyorsa). Bluetooth şarj durumu
+bildirmez; şarjdayken yeşil olmaz.
 
 ## Derleme
 
@@ -77,11 +82,13 @@ Yerelde kurulum dosyası: `cargo build --release` ardından
 src/
   main.rs            giriş; platform seçimi
   model.rs           Kind, Battery, Tone, Shown — gösterim kararları (platformdan bağımsız)
+  update.rs          yeni sürüm denetimi, indirme, sessiz kurulum
   poller.rs          arka plan sorgu iş parçacığı, son bilinen değerler
   devices/
-    mod.rs           Driver tanımı, DRIVERS listesi, poll(), exchange() yardımcısı
-    arctis_nova7.rs  her cihaz modeli = bir dosya
+    mod.rs           Reading, Driver tanımı, DRIVERS listesi, poll(), exchange() yardımcısı
+    arctis_nova7.rs  USB alıcılı her cihaz modeli = bir dosya
     waizowl_ogm.rs
+    bluetooth/       işletim sisteminin bildiği Bluetooth pil seviyeleri (windows.rs, macos.rs)
   win/
     mod.rs           Win32 mesaj döngüsü
     strip.rs         taskbar şeridi (çizim, konum, sağ tık menüsü)

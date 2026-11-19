@@ -22,6 +22,9 @@ fn emoji(kind: Kind) -> &'static str {
     match kind {
         Kind::Headset => "🎧",
         Kind::Mouse => "🖱",
+        Kind::Keyboard => "⌨️",
+        Kind::Gamepad => "🎮",
+        Kind::Other => "🔵",
     }
 }
 

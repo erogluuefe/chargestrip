@@ -49,6 +49,9 @@ fn glyph(kind: Kind) -> &'static str {
     match kind {
         Kind::Headset => "\u{E7F6}",
         Kind::Mouse => "\u{E962}",
+        Kind::Keyboard => "\u{E765}",
+        Kind::Gamepad => "\u{E7FC}",
+        Kind::Other => "\u{E702}", // Bluetooth simgesi
     }
 }
 

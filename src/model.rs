@@ -7,6 +7,10 @@
 pub enum Kind {
     Headset,
     Mouse,
+    Keyboard,
+    Gamepad,
+    /// Türü bilinmeyen (çoğunlukla Bluetooth) cihaz.
+    Other,
 }
 
 /// Bir sürücünün başarılı bir okumada bildirdiği pil durumu.
