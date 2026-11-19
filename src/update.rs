@@ -30,6 +30,7 @@ pub fn spawn(notify: impl Fn(Update) + Send + 'static) {
         .name("update".into())
         .stack_size(128 * 1024)
         .spawn(move || loop {
+            remove_old_downloads();
             let json = curl(&["-fsSL", "--max-time", "20", LATEST]).unwrap_or_default();
             if let Some(update) = parse(&json, env!("CARGO_PKG_VERSION")) {
                 notify(update);
@@ -37,6 +38,19 @@ pub fn spawn(notify: impl Fn(Update) + Send + 'static) {
             }
             std::thread::sleep(CHECK_EVERY);
         });
+}
+
+/// Önceki güncellemelerden geçici klasörde kalan kurulum dosyalarını siler. Kurulum hâlâ
+/// çalışıyorsa dosyası kilitlidir, silinemez; bir sonraki denetimde silinir.
+fn remove_old_downloads() {
+    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else { return };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with("Chargestrip-") && name.ends_with(ASSET_SUFFIX) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
 }
 
 /// Kurulum dosyasını geçici klasöre indirir.
