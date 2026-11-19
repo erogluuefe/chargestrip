@@ -36,7 +36,7 @@ Windows'ta Rust (MSVC) ve Visual Studio C++ Build Tools gerekir.
    git push origin v0.3.0
    ```
 3. GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)) testleri çalıştırır,
-   Windows kurulum dosyasını (`Chargestrip-Setup-0.3.0.exe`) ve macOS paketini üretip
+   Windows kurulum dosyasını (`Chargestrip-Setup-0.3.0.exe`) ve macOS disk kalıbını (`Chargestrip-macOS-0.3.0.dmg`) üretip
    Releases sayfasına koyar. Etiket `Cargo.toml` sürümüyle uyuşmazsa durur.
 
 Kurulum ([installer/chargestrip.iss](installer/chargestrip.iss), Inno Setup) yönetici izni istemez,
