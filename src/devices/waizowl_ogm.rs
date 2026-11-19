@@ -1,6 +1,6 @@
 //! Waizowl OGM Pro V2 fare ("OGM 8K" Nordic alıcısı).
 //!
-//! Protokol Waizowl Driver Software trafiğinden çıkarıldı: docs/fare-protokolu.md.
+//! Protokol Waizowl Driver Software trafiğinden çıkarıldı: docs/waizowl-ogm-protocol.md.
 //! - Çerçeve 64 bayt: `[komut, 00, 81, 01, veri…, sağlama]`; 64 baytın toplamı mod 256 = 0xA1.
 //! - `0x01` bağlantı durumu: cevapta `[4]` = 0x0A bağlı, 0x02 fare kapalı/uykuda.
 //! - `0x41` pil: cevapta `[5]` = 1 şarjda, `[6]` = yüzde.
@@ -63,7 +63,7 @@ fn battery(f: &[u8]) -> Option<Battery> {
 mod tests {
     use super::*;
 
-    /// Kayıttaki bir çerçeve: anlamlı baş kısım + sıfırlar + sağlama (docs/fare-protokolu.md).
+    /// Kayıttaki bir çerçeve: anlamlı baş kısım + sıfırlar + sağlama (docs/waizowl-ogm-protocol.md).
     fn captured(head: &[u8], checksum: u8) -> Vec<u8> {
         let mut f = vec![0u8; FRAME];
         f[..head.len()].copy_from_slice(head);
