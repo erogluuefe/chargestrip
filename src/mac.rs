@@ -75,8 +75,16 @@ pub fn run() {
                 let refresh_item = MenuItem::new("Yenile", true, None);
                 let autostart = CheckMenuItem::new("Açılışta başlat", true, autostart::is_enabled(), None);
                 let quit = MenuItem::new("Çıkış", true, None);
+                // Yalnızca bilgi: soluk, tıklanmaz.
+                let version = MenuItem::new(concat!("Chargestrip ", env!("CARGO_PKG_VERSION")), false, None);
                 let menu = Menu::new();
-                let _ = menu.append_items(&[&refresh_item, &autostart, &PredefinedMenuItem::separator(), &quit]);
+                let _ = menu.append_items(&[
+                    &refresh_item,
+                    &autostart,
+                    &PredefinedMenuItem::separator(),
+                    &version,
+                    &quit,
+                ]);
                 let Ok(icon) = TrayIconBuilder::new().with_title("…").with_menu(Box::new(menu.clone())).build()
                 else {
                     *flow = ControlFlow::Exit;

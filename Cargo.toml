@@ -1,6 +1,6 @@
 [package]
 name = "chargestrip"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 description = "Kablosuz cihazların pil durumunu Windows taskbar'ında / macOS menü çubuğunda gösterir"
 

@@ -282,6 +282,8 @@ impl Strip {
             AppendMenuW(m, MF_STRING, Command::Refresh as usize, wide("Yenile").as_ptr());
             AppendMenuW(m, MF_STRING | check, Command::ToggleAutostart as usize, wide("Açılışta başlat").as_ptr());
             AppendMenuW(m, MF_SEPARATOR, 0, null());
+            let version = wide(concat!("Chargestrip ", env!("CARGO_PKG_VERSION")));
+            AppendMenuW(m, MF_STRING | MF_GRAYED, 0, version.as_ptr()); // yalnızca bilgi
             AppendMenuW(m, MF_STRING, Command::Quit as usize, wide("Çıkış").as_ptr());
             let mut pt = POINT { x: 0, y: 0 };
             GetCursorPos(&mut pt);

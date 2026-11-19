@@ -22,7 +22,7 @@ Kablosuz kulaklık, fare vb. cihazların pil durumunu gösterir:
 Sonraki sürümler uygulamanın sağ tık menüsünden kurulur (aşağıda "Güncelleme").
 
 Renkler (Windows): ≤%15 kırmızı, şarjda yeşil, cihaz kapalı/uykuda ise gri (varsa son değerle).
-Sağ tık: Yenile · Açılışta başlat · Çıkış. Sorgu aralığı 60 sn. Hiç alıcı takılı değilse soluk bir
+Sağ tık: Yenile · Açılışta başlat · sürüm numarası · Çıkış. Sorgu aralığı 60 sn. Hiç alıcı takılı değilse soluk bir
 pil ikonu görünür.
 
 Güncelleme: GitHub'daki son sürüm günde bir kez kontrol edilir; daha yenisi varsa menünün başında
