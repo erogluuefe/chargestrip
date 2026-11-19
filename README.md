@@ -3,7 +3,18 @@
 Kablosuz kulaklık, fare vb. cihazların pil durumunu gösterir:
 
 - **Windows 10/11:** taskbar'da, `^` okunun hemen solunda: `🎧 75%  🖱 64%`
-- **macOS:** menü çubuğunda tek bir öğe (CI'da derleniyor, gerçek Mac'te henüz denenmedi)
+- **macOS 11+:** menü çubuğunda tek bir öğe: `🎧 75%  🖱 64% ⚡` (cihazlarla henüz denenmedi)
+
+## İndirme
+
+[Son sürüm](https://github.com/erogluuefe/chargestrip/releases/latest):
+
+- **Windows:** `Chargestrip-Setup-x.y.z.exe`. Yönetici izni istemez. SmartScreen uyarısında
+  "Ek bilgi → Yine de çalıştır".
+- **macOS:** `Chargestrip-macOS-x.y.z.dmg`. Açıp Chargestrip'i Applications'a sürükle. İlk açılış
+  engellenirse Sistem Ayarları → Gizlilik ve Güvenlik → "Yine de Aç".
+
+Sonraki sürümler uygulamanın sağ tık menüsünden kurulur (aşağıda "Güncelleme").
 
 Renkler (Windows): ≤%15 kırmızı, şarjda yeşil, cihaz kapalı/uykuda ise gri (varsa son değerle).
 Sağ tık: Yenile · Açılışta başlat · Çıkış. Sorgu aralığı 60 sn. Hiç alıcı takılı değilse soluk bir
@@ -11,7 +22,8 @@ pil ikonu görünür.
 
 Güncelleme: GitHub'daki son sürüm günde bir kez kontrol edilir; daha yenisi varsa menünün başında
 "Güncelle (x.y.z)" çıkar, seçilince indirilip sessizce kurulur ve uygulama yeniden açılır. Ağ için
-sistemle gelen `curl` kullanılır, ek kütüphane yok.
+sistemle gelen `curl` kullanılır, ek kütüphane yok. Uygulamanın internete tek çıkışı budur
+(`api.github.com` ve indirilen Release dosyası); hiçbir veri gönderilmez.
 
 Hafiflik: tek dosya ~300 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
 
