@@ -6,9 +6,14 @@ Kablosuz kulaklık, fare vb. cihazların pil durumunu gösterir:
 - **macOS:** menü çubuğunda tek bir öğe (CI'da derleniyor, gerçek Mac'te henüz denenmedi)
 
 Renkler (Windows): ≤%15 kırmızı, şarjda yeşil, cihaz kapalı/uykuda ise gri (varsa son değerle).
-Sağ tık: Yenile · Açılışta başlat · Çıkış. Sorgu aralığı 60 sn.
+Sağ tık: Yenile · Açılışta başlat · Çıkış. Sorgu aralığı 60 sn. Hiç alıcı takılı değilse soluk bir
+pil ikonu görünür.
 
-Hafiflik: tek dosya ~200 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
+Güncelleme: GitHub'daki son sürüm günde bir kez kontrol edilir; daha yenisi varsa menünün başında
+"Güncelle (x.y.z)" çıkar, seçilince indirilip sessizce kurulur ve uygulama yeniden açılır. Ağ için
+sistemle gelen `curl` kullanılır, ek kütüphane yok.
+
+Hafiflik: tek dosya ~300 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
 
 ## Desteklenen cihazlar
 

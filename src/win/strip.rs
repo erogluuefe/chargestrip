@@ -26,6 +26,7 @@ pub enum Command {
     Refresh = 1,
     ToggleAutostart = 2,
     Quit = 3,
+    Update = 4,
 }
 
 type Rgb = [u8; 3];
@@ -267,11 +268,17 @@ impl Strip {
         }
     }
 
-    /// Sağ tık menüsünü imlecin yanında açar ve seçilen komutu döndürür.
-    pub fn menu(&self, autostart_on: bool) -> Option<Command> {
+    /// Sağ tık menüsünü imlecin yanında açar ve seçilen komutu döndürür. `update`: yayımlanmış
+    /// yeni sürüm varsa numarası; menünün başına "Güncelle" eklenir.
+    pub fn menu(&self, autostart_on: bool, update: Option<&str>) -> Option<Command> {
         unsafe {
             let m = CreatePopupMenu();
             let check = if autostart_on { MF_CHECKED } else { MF_UNCHECKED };
+            if let Some(version) = update {
+                let label = wide(&format!("Güncelle ({version})"));
+                AppendMenuW(m, MF_STRING, Command::Update as usize, label.as_ptr());
+                AppendMenuW(m, MF_SEPARATOR, 0, null());
+            }
             AppendMenuW(m, MF_STRING, Command::Refresh as usize, wide("Yenile").as_ptr());
             AppendMenuW(m, MF_STRING | check, Command::ToggleAutostart as usize, wide("Açılışta başlat").as_ptr());
             AppendMenuW(m, MF_SEPARATOR, 0, null());
@@ -284,7 +291,7 @@ impl Strip {
             let id = TrackPopupMenu(m, flags, pt.x, pt.y, 0, self.owner, null());
             PostMessageW(self.owner, WM_NULL, 0, 0);
             DestroyMenu(m);
-            [Command::Refresh, Command::ToggleAutostart, Command::Quit]
+            [Command::Refresh, Command::ToggleAutostart, Command::Quit, Command::Update]
                 .into_iter()
                 .find(|&c| c as i32 == id)
         }

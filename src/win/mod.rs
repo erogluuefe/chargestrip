@@ -2,7 +2,7 @@
 //! en düşük bellek için).
 //!
 //! Ana iş parçacığı yalnızca mesaj bekler. Uyandıran şeyler:
-//! - `WM_APP`: sorgu iş parçacığı yeni sonuç gönderdi
+//! - `WM_APP`: sorgu iş parçacığı yeni sonuç ya da güncelleme denetimi yeni sürüm gönderdi
 //! - `WM_TIMER` (2 sn): şeridin konumu/teması değişti mi, Explorer yeniden başladı mı
 //! - `strip::WM_APP_MENU`: şeride sağ tıklandı
 
@@ -11,6 +11,7 @@ mod strip;
 
 use crate::model::Shown;
 use crate::poller;
+use crate::update::{self, Update};
 use std::ffi::c_void;
 use std::ptr::null_mut;
 use std::sync::mpsc;
@@ -35,6 +36,12 @@ pub fn run() {
         let _ = tx.send(items);
         unsafe { PostThreadMessageW(main_thread, WM_APP, 0, 0) };
     });
+    let (update_tx, update_rx) = mpsc::channel::<Update>();
+    update::spawn(move |u| {
+        let _ = update_tx.send(u);
+        unsafe { PostThreadMessageW(main_thread, WM_APP, 0, 0) };
+    });
+    let mut pending: Option<Update> = None;
 
     // Taskbar yoksa (Explorer kapalı/yeniden başlıyor) `None` kalır, her tick'te yeniden denenir.
     let mut strip = Strip::create();
@@ -58,7 +65,7 @@ pub fn run() {
             }
         } else if msg.message == WM_APP_MENU {
             let Some(s) = &strip else { continue };
-            match s.menu(autostart::is_enabled()) {
+            match s.menu(autostart::is_enabled(), pending.as_ref().map(|u| u.version.as_str())) {
                 Some(Command::Refresh) => {
                     let _ = refresh.send(());
                 }
@@ -66,10 +73,22 @@ pub fn run() {
                     autostart::set_enabled(!autostart::is_enabled());
                 }
                 Some(Command::Quit) => return,
+                // İndirme birkaç saniye sürer (~2 MB); kurulum başlayınca çıkılır, kurulum
+                // uygulamayı yeniden açar. İndirme başarısızsa menüde kalır, tekrar denenebilir.
+                Some(Command::Update) => {
+                    if let Some(file) = pending.as_ref().and_then(update::download) {
+                        if update::install(&file) {
+                            return;
+                        }
+                    }
+                }
                 None => {}
             }
         }
 
+        if let Ok(u) = update_rx.try_recv() {
+            pending = Some(u);
+        }
         while let Ok(new) = rx.try_recv() {
             items = new;
             if let Some(s) = &mut strip {

@@ -4,6 +4,7 @@
 
 use crate::model::{Kind, Shown, Tone};
 use crate::poller;
+use crate::update::{self, Update};
 use std::sync::mpsc::Sender;
 use tao::event::{Event, StartCause};
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
@@ -12,7 +13,8 @@ use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuIt
 use tray_icon::{TrayIcon, TrayIconBuilder};
 
 enum AppEvent {
-    Update(Vec<Shown>),
+    Readings(Vec<Shown>),
+    NewVersion(Update),
     Menu(MenuEvent),
 }
 
@@ -45,10 +47,13 @@ fn title(items: &[Shown]) -> String {
 }
 
 struct Ui {
-    _icon: TrayIcon,
+    icon: TrayIcon,
+    menu: Menu,
     refresh: MenuItem,
     autostart: CheckMenuItem,
     quit: MenuItem,
+    /// Yayımlanmış yeni sürüm ve menünün başına eklenen "Güncelle" öğesi.
+    update: Option<(Update, MenuItem)>,
 }
 
 pub fn run() {
@@ -72,19 +77,31 @@ pub fn run() {
                 let quit = MenuItem::new("Çıkış", true, None);
                 let menu = Menu::new();
                 let _ = menu.append_items(&[&refresh_item, &autostart, &PredefinedMenuItem::separator(), &quit]);
-                let Ok(icon) = TrayIconBuilder::new().with_title("…").with_menu(Box::new(menu)).build() else {
+                let Ok(icon) = TrayIconBuilder::new().with_title("…").with_menu(Box::new(menu.clone())).build()
+                else {
                     *flow = ControlFlow::Exit;
                     return;
                 };
-                ui = Some(Ui { _icon: icon, refresh: refresh_item, autostart, quit });
+                ui = Some(Ui { icon, menu, refresh: refresh_item, autostart, quit, update: None });
                 let p = proxy.clone();
                 refresh = Some(poller::spawn(move |items| {
-                    let _ = p.send_event(AppEvent::Update(items));
+                    let _ = p.send_event(AppEvent::Readings(items));
                 }));
+                let p = proxy.clone();
+                update::spawn(move |u| {
+                    let _ = p.send_event(AppEvent::NewVersion(u));
+                });
             }
-            Event::UserEvent(AppEvent::Update(items)) => {
+            Event::UserEvent(AppEvent::Readings(items)) => {
                 if let Some(ui) = &ui {
-                    ui._icon.set_title(Some(title(&items)));
+                    ui.icon.set_title(Some(title(&items)));
+                }
+            }
+            Event::UserEvent(AppEvent::NewVersion(u)) => {
+                if let Some(ui) = &mut ui {
+                    let item = MenuItem::new(format!("Güncelle ({})", u.version), true, None);
+                    let _ = ui.menu.prepend_items(&[&item, &PredefinedMenuItem::separator()]);
+                    ui.update = Some((u, item));
                 }
             }
             Event::UserEvent(AppEvent::Menu(e)) => {
@@ -97,6 +114,12 @@ pub fn run() {
                     autostart::set_enabled(ui.autostart.is_checked());
                 } else if e.id == *ui.quit.id() {
                     *flow = ControlFlow::Exit;
+                } else if let Some((u, item)) = &ui.update {
+                    // İndirme birkaç saniye sürer; kurulum betiği bu süreç çıkınca paketi değiştirip
+                    // yeniden açar. Başarısızsa öğe menüde kalır, tekrar denenebilir.
+                    if e.id == *item.id() && update::download(u).is_some_and(|f| update::install(&f)) {
+                        *flow = ControlFlow::Exit;
+                    }
                 }
             }
             _ => {}

@@ -5,6 +5,7 @@
 //! - `devices`: cihaz sürücüleri (USB HID üzerinden salt-okuma pil sorguları)
 //! - `poller`:  arka planda periyodik sorgu
 //! - `model`:   platformdan bağımsız gösterim kararları
+//! - `update`:  yeni sürüm denetimi, indirme ve kurma
 //! - `win` / `mac`: platforma özgü arayüz
 
 #![windows_subsystem = "windows"]
@@ -12,6 +13,7 @@
 mod devices;
 mod model;
 mod poller;
+mod update;
 
 #[cfg(target_os = "macos")]
 mod mac;
