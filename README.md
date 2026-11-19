@@ -36,8 +36,8 @@ Hafiflik: tek dosya ~320 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). A
 
 | Cihaz | Alıcı | Yöntem |
 |---|---|---|
-| SteelSeries Arctis Nova 7P | `1038:220A`, `22A7`, `2298` | Durum isteği `B0` |
-| Waizowl OGM Pro V2 | `1915:0728` ("OGM 8K") | Kendi kaydımız: [docs/fare-protokolu.md](docs/fare-protokolu.md) |
+| SteelSeries Arctis Nova 7P | `1038:220A`, `22A7`, `2298` | Durum isteği `B0`; Ocak 2026 öncesi yazılımda pil 0–4 kademe |
+| Waizowl OGM Pro V2 | `1915:0728` ("OGM 8K") | [docs/fare-protokolu.md](docs/fare-protokolu.md) |
 | **Bluetooth cihazlar** (kulaklık, klavye, fare, kol…) | — | İşletim sisteminin bildiği pil seviyesi: Windows'ta aygıt özelliği, macOS'ta `system_profiler` (5 dakikada bir) |
 
 Bluetooth cihazlar yalnızca bağlıyken ve işletim sistemi pil seviyesini biliyorsa görünür (Windows
