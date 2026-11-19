@@ -22,7 +22,7 @@ keyboard and Bluetooth devices, without keeping vendor software running.
 
 <br>
 
-<img src="assets/screenshot-windows.png" width="427" alt="Chargestrip in the Windows taskbar: headset at 100 % and mouse at 99 %, next to the system tray">
+<img src="assets/taskbar-windows.png" width="427" alt="Chargestrip in the Windows taskbar: headset at 100 % and mouse at 99 %, next to the system tray">
 
 <sub>Windows: headset at 100 %, mouse at 99 %, sitting just left of the tray arrow.</sub>
 
