@@ -1,6 +1,6 @@
 [package]
 name = "chargestrip"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 description = "Battery levels of wireless headsets, mice, keyboards and Bluetooth devices in the Windows taskbar and the macOS menu bar"
 license = "GPL-3.0-or-later"
@@ -32,6 +32,17 @@ winresource = "0.1"
 [target.'cfg(target_os = "macos")'.dependencies]
 tao = "0.34"
 tray-icon = "0.21"
+# Already used by tray-icon; needed directly to draw the menu bar title as a template image.
+block2 = "0.6"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "std", "objc2-core-foundation", "NSAttributedString", "NSDictionary", "NSGeometry", "NSString",
+] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std", "objc2-core-foundation", "block2", "NSAttributedString", "NSButton", "NSCell", "NSColor",
+    "NSControl", "NSFont", "NSFontDescriptor", "NSGraphics", "NSImage", "NSImageRep", "NSResponder",
+    "NSStatusBarButton", "NSStatusItem", "NSStringDrawing", "NSView",
+] }
 
 [profile.release]
 opt-level = "z"

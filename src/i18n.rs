@@ -13,10 +13,14 @@ pub struct Strings {
     pub quit: &'static str,
     /// Entry at the top of the menu: `{v}`
     pub update_to: &'static str,
-    /// Question asked when a manual check finds a new version: `{v}`, `{cur}`
+    /// Windows: message boxes after a manual check. Question when a new version is found:
+    /// `{v}`, `{cur}`
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub ask_update: &'static str,
     /// `{cur}`
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub up_to_date: &'static str,
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub check_failed: &'static str,
     /// macOS: a manual check's result is written into the menu entry. `{v}` / `{cur}`
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]

@@ -1,10 +1,16 @@
-//! macOS UI: a single status item in the menu bar, titled e.g. "🎧 75%  🖱 64% ⚡".
-//! A menu bar item needs an NSApplication event loop, which `tao` provides. No Dock icon.
+//! macOS UI: a single status item in the menu bar showing a monochrome symbol and percentage per
+//! device ([`title`]). A menu bar item needs an NSApplication event loop, which `tao` provides.
+//! No Dock icon.
+
+mod title;
 
 use crate::i18n::{fill, t};
 use crate::model::{Kind, Shown, Tone};
 use crate::poller;
 use crate::update::{self, Update};
+use objc2::MainThreadMarker;
+use objc2_app_kit::NSCellImagePosition;
+use objc2_foundation::NSString;
 use std::sync::mpsc::Sender;
 use tao::event::{Event, StartCause};
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
@@ -28,9 +34,9 @@ fn emoji(kind: Kind) -> &'static str {
     }
 }
 
-/// Menu bar title. The title has a single color, so the state is shown with a symbol.
+/// Text version of the title: the tooltip, and the title itself if the symbols can't be drawn.
 /// "🔋 –" when nothing is connected, so the item never disappears and the app is visibly running.
-fn title(items: &[Shown]) -> String {
+fn text_title(items: &[Shown]) -> String {
     if items.is_empty() {
         return "🔋 –".into();
     }
@@ -70,6 +76,22 @@ impl Ui {
         let item = MenuItem::new(fill(t().update_to, &u.version), true, None);
         let _ = self.menu.prepend_items(&[&item, &PredefinedMenuItem::separator()]);
         self.update = Some((u, item));
+    }
+}
+
+/// Shows the readings: the symbol image as the status item's button image, the text version as
+/// its tooltip. Falls back to a text title if the image can't be drawn.
+fn show(icon: &TrayIcon, items: &[Shown]) {
+    let text = text_title(items);
+    let _ = icon.set_tooltip(Some(&text));
+    let button = MainThreadMarker::new().zip(icon.ns_status_item()).and_then(|(mtm, item)| item.button(mtm));
+    match (button, title::render(items)) {
+        (Some(button), Some(image)) => {
+            button.setTitle(&NSString::from_str(""));
+            button.setImage(Some(&image));
+            button.setImagePosition(NSCellImagePosition::ImageOnly);
+        }
+        _ => icon.set_title(Some(text)),
     }
 }
 
@@ -121,7 +143,7 @@ pub fn run() {
             }
             Event::UserEvent(AppEvent::Readings(items)) => {
                 if let Some(ui) = &ui {
-                    ui.icon.set_title(Some(title(&items)));
+                    show(&ui.icon, &items);
                 }
             }
             Event::UserEvent(AppEvent::NewVersion(u)) => {

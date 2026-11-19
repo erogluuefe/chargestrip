@@ -55,8 +55,10 @@ keyboard and Bluetooth devices, without keeping vendor software running.
 | `🖱 –` in **gray** | Device off, no reading yet in this session |
 | `🔋 –` | Running, but no supported receiver or Bluetooth device found |
 
-On macOS the menu bar title is plain text, so the state is a symbol instead of a color:
-`🎧 82%  🖱 12% ⚠  ⌨️ 64% ⚡  🎮 40% ·` (low, charging, asleep).
+On macOS the menu bar item uses monochrome SF Symbols that follow the menu bar's light or dark
+appearance, like Apple's own items. Menu bar items have a single color, so the state is a small mark
+instead: a bolt while charging, a warning sign at 15 % or less, and a dimmed item while the device is
+off or asleep. Hover over it for a text summary.
 
 Click the strip (left or right) or the menu bar item for **Refresh**, **Start at login**,
 **Check for updates** and **Quit**. The interface follows the system language (English and Turkish
@@ -237,7 +239,7 @@ src/
     waizowl_ogm.rs
     bluetooth/         OS battery levels (windows.rs, macos.rs)
   win/                 Win32 message loop, taskbar strip, autostart
-  mac.rs               menu bar item, LaunchAgent autostart
+  mac/                 menu bar item (mod.rs), its template image (title.rs), LaunchAgent autostart
 assets/                logo and the script that renders it
 installer/             Inno Setup script
 scripts/               macOS one-line installer
