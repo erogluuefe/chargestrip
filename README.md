@@ -3,7 +3,7 @@
 Kablosuz kulaklık, fare vb. cihazların pil durumunu gösterir:
 
 - **Windows 10/11:** taskbar'da, `^` okunun hemen solunda: `🎧 75%  🖱 64%`
-- **macOS:** menü çubuğunda tek bir öğe (henüz derlenip denenmedi)
+- **macOS:** menü çubuğunda tek bir öğe (CI'da derleniyor, gerçek Mac'te henüz denenmedi)
 
 Renkler (Windows): ≤%15 kırmızı, şarjda yeşil, cihaz kapalı/uykuda ise gri (varsa son değerle).
 Sağ tık: Yenile · Açılışta başlat · Çıkış. Sorgu aralığı 60 sn.
