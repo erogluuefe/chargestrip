@@ -1,12 +1,12 @@
-//! Güncelleme: GitHub'daki en son sürümü günde bir kez sorar; daha yeniyse arayüze bildirir.
-//! İndirme ve kurma yalnızca kullanıcı menüden "Güncelle"yi seçince yapılır.
+//! Updates: checks GitHub for the latest release once a day and tells the UI when it is newer.
+//! Downloading and installing only happen when the user picks "Update" in the menu.
 //!
-//! Son sürüm, GitHub'ın `releases/latest` adresinin yönlendirdiği etiketten okunur
-//! (`…/releases/tag/v1.2.3`); GitHub API'sinin saatlik istek sınırına takılmaz. Dosya adı
-//! sürümden türetilir (sürüm akışı her sürümde aynı adlarla yükler).
+//! The latest version is read from the tag GitHub's `releases/latest` URL redirects to
+//! (`…/releases/tag/v1.2.3`), which is not subject to the GitHub API rate limit. The file name is
+//! derived from the version (the release workflow uploads the same names every time).
 //!
-//! Ağ için ek kütüphane (TLS, HTTP) yok: Windows 10+ ve macOS'ta hazır gelen `curl` çalıştırılır.
-//! Böylece boyut ve bellek değişmez.
+//! No networking dependency (TLS, HTTP): the `curl` that ships with Windows 10+ and macOS is run
+//! instead, so size and memory stay the same.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -15,23 +15,23 @@ use std::time::Duration;
 const RELEASES: &str = "https://github.com/erogluuefe/chargestrip/releases";
 const CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
-/// Bu platformun Release dosyası (kurulum programı / disk kalıbı): ön ek + sürüm + uzantı.
+/// This platform's release file (installer / disk image): prefix + version + extension.
 #[cfg(windows)]
 const ASSET: (&str, &str) = ("Chargestrip-Setup-", ".exe");
 #[cfg(target_os = "macos")]
 const ASSET: (&str, &str) = ("Chargestrip-macOS-", ".dmg");
 
-/// Yayımlanmış, çalışandan yeni bir sürüm.
+/// A published version newer than the running one.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Update {
     pub version: String,
     url: String,
 }
 
-/// Çalışan sürüm.
+/// The running version.
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 
-/// Arka planda günde bir kez denetler; yeni sürüm bulunca `notify` bir kez çağrılır ve biter.
+/// Checks in the background once a day; calls `notify` once when a new version is found, then stops.
 pub fn spawn(notify: impl Fn(Update) + Send + 'static) {
     let _ = std::thread::Builder::new()
         .name("update".into())
@@ -46,16 +46,16 @@ pub fn spawn(notify: impl Fn(Update) + Send + 'static) {
         });
 }
 
-/// Hemen denetler (menüden "Güncellemeleri denetle"; genelde bir saniyenin altında).
-/// `Ok(None)`: güncel. `Err`: GitHub'a ulaşılamadı.
+/// Checks right away ("Check for updates" in the menu; usually well under a second).
+/// `Ok(None)`: up to date. `Err`: GitHub could not be reached.
 pub fn check() -> Result<Option<Update>, ()> {
-    // Yalnızca başlıklar (-I), yönlendirme izlenmeden: "location: …/releases/tag/v1.2.3".
+    // Headers only (-I), without following the redirect: "location: …/releases/tag/v1.2.3".
     let headers = curl(&["-fsSI", "--max-time", "20", &format!("{RELEASES}/latest")]).ok_or(())?;
     Ok(parse(&headers, CURRENT))
 }
 
-/// Önceki güncellemelerden geçici klasörde kalan kurulum dosyalarını siler. Kurulum hâlâ
-/// çalışıyorsa dosyası kilitlidir, silinemez; bir sonraki denetimde silinir.
+/// Deletes installers left in the temp folder by earlier updates. A still-running installer keeps
+/// its file locked; that one is deleted on the next check.
 fn remove_old_downloads() {
     let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else { return };
     for entry in entries.flatten() {
@@ -67,7 +67,7 @@ fn remove_old_downloads() {
     }
 }
 
-/// Kurulum dosyasını geçici klasöre indirir.
+/// Downloads the installer into the temp folder.
 pub fn download(update: &Update) -> Option<PathBuf> {
     let name = update.url.rsplit('/').next()?;
     let path = std::env::temp_dir().join(name);
@@ -75,25 +75,26 @@ pub fn download(update: &Update) -> Option<PathBuf> {
     path.exists().then_some(path)
 }
 
-/// İndirilen kurulumu başlatır; çağıran ardından hemen çıkmalıdır (dosya kilitli kalmasın).
-/// Kurulum bitince uygulama kendiliğinden yeniden açılır.
+/// Starts the downloaded installer; the caller must exit right after (so no file stays locked).
+/// The app is relaunched when the installation finishes.
 pub fn install(file: &Path) -> bool {
     #[cfg(windows)]
     {
-        // Inno Setup: sessiz kurulum, önceki seçimler (açılışta başlat) korunur; [Run]'daki
-        // `skipifnotsilent` satırı uygulamayı yeniden açar.
+        // Inno Setup: silent install, previous choices (start with Windows) are kept; the
+        // `skipifnotsilent` entry in [Run] relaunches the app.
         Command::new(file).args(["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]).spawn().is_ok()
     }
     #[cfg(target_os = "macos")]
     {
-        // Çalışan .app paketinin yerine diskteki yenisini koyar ve açar. Bu süreç çıkana dek
-        // 1 sn bekler. curl ile indirilen dosyada karantina işareti olmaz, uyarı çıkmaz.
+        // Replaces the running .app bundle with the one from the disk image and opens it, after
+        // waiting a second for this process to exit. curl downloads carry no quarantine flag, so
+        // no Gatekeeper prompt appears.
         let Some(app) = std::env::current_exe().ok().and_then(|e| e.ancestors().nth(3).map(Path::to_path_buf))
         else {
             return false;
         };
         if app.extension().is_none_or(|x| x != "app") {
-            return false; // paket dışında (geliştirme) çalışıyor
+            return false; // running outside a bundle (development)
         }
         const SCRIPT: &str = r#"set -e; sleep 1
 M=$(mktemp -d); hdiutil attach -nobrowse -quiet -mountpoint "$M" "$1"
@@ -103,7 +104,7 @@ rm -rf "$2"; mv "$2.new" "$2"; open "$2""#;
     }
 }
 
-/// `curl`'ü pencere açmadan çalıştırır; başarılıysa standart çıktısı.
+/// Runs `curl` without opening a window; its standard output on success.
 fn curl(args: &[&str]) -> Option<String> {
     #[cfg(windows)]
     let mut cmd = {
@@ -120,7 +121,8 @@ fn curl(args: &[&str]) -> Option<String> {
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// `releases/latest` cevabının başlıklarından, `current`'tan yeniyse sürüm ve bu platformun dosyası.
+/// From the `releases/latest` response headers: the version and this platform's file, if newer
+/// than `current`.
 fn parse(headers: &str, current: &str) -> Option<Update> {
     let location = headers.lines().find_map(|line| {
         let (name, value) = line.split_once(':')?;
@@ -135,7 +137,7 @@ fn parse(headers: &str, current: &str) -> Option<Update> {
     Some(Update { version: version.to_string(), url })
 }
 
-/// "0.10.1" > "0.9.3" gibi sayısal karşılaştırma; sayı olmayan sürüm hiçbir zaman yeni sayılmaz.
+/// Numeric comparison, so "0.10.1" > "0.9.3"; a non-numeric version is never considered newer.
 fn newer(candidate: &str, current: &str) -> bool {
     let parts = |v: &str| v.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>, _>>();
     match (parts(candidate), parts(current)) {
@@ -148,11 +150,8 @@ fn newer(candidate: &str, current: &str) -> bool {
 mod tests {
     use super::*;
 
-    const HEADERS: &str = "HTTP/1.1 302 Found
-Server: GitHub.com
-        Location: https://github.com/erogluuefe/chargestrip/releases/tag/v0.3.0
-
-";
+    const HEADERS: &str = "HTTP/1.1 302 Found\r\nServer: GitHub.com\r\n\
+        Location: https://github.com/erogluuefe/chargestrip/releases/tag/v0.3.0\r\n\r\n";
 
     #[test]
     fn finds_newer_release_for_this_platform() {
@@ -179,10 +178,8 @@ Server: GitHub.com
     #[test]
     fn no_release_or_garbage() {
         assert_eq!(parse("", "0.1.0"), None);
-        // Hiç sürüm yoksa GitHub sürümler sayfasına yönlendirir.
-        assert_eq!(parse("location: https://github.com/erogluuefe/chargestrip/releases
-", "0.1.0"), None);
-        assert_eq!(parse("location: https://github.com/x/y/releases/tag/vNEXT
-", "0.1.0"), None);
+        // Without any release, GitHub redirects to the releases page.
+        assert_eq!(parse("location: https://github.com/erogluuefe/chargestrip/releases\r\n", "0.1.0"), None);
+        assert_eq!(parse("location: https://github.com/x/y/releases/tag/vNEXT\r\n", "0.1.0"), None);
     }
 }

@@ -1,9 +1,9 @@
-"""Üretici yazılımını başlatıp USB cihazıyla HID trafiğini kaydeder (yalnızca dinler).
+"""Starts the vendor software and records its HID traffic with a USB device (listen-only).
 
-Kullanım:  python run.py <program.exe> <vid> <kayit.log>
-Örnek:     python run.py "C:\\Program Files (x86)\\Waizowl Driver Software\\DeviceDriver.exe" 1915 kayit.log
-Gerekli:   pip install frida
-Program kapatılınca kayıt biter.
+Usage:     python run.py <program.exe> <vid> <capture.log>
+Example:   python run.py "C:\\Program Files (x86)\\Waizowl Driver Software\\DeviceDriver.exe" 1915 capture.log
+Requires:  pip install frida
+Recording stops when the program exits.
 """
 
 import pathlib
@@ -34,7 +34,7 @@ def main() -> None:
     script.on("message", on_message)
     script.load()
     device.resume(pid)
-    print(f"kaydediliyor → {log_path} (programı kapatınca biter)")
+    print(f"recording → {log_path} (stops when the program exits)")
     done.wait()
 
 

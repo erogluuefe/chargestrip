@@ -1,12 +1,14 @@
-//! Fractal Design Scape kulaklık: 2.4 GHz alıcısı (`36BC:0001`) ya da USB-C kablosuyla kulaklığın
-//! kendisi (`36BC:2001`). İkisi de usage page `FF00` üzerinde 64 baytlık bir arayüz sunar.
+//! Fractal Design Scape headset: its 2.4 GHz receiver (`36BC:0001`) or the headset itself on its
+//! USB-C cable (`36BC:2001`). Both expose a 64-byte interface on usage page `FF00`.
 //!
-//! Protokol (Fractal'ın kendi web yapılandırıcısının kullandığı istek; donanımla denenmiş):
-//! - İstek: rapor `0x02` = `[0x02, cihaz türü, 0x21]` ("cihaz durumunu ver"). Ayar değiştirmez.
-//!   Cihaz türü `0x11` alıcı, `0xF1` kulaklık; alıcıya giden kulaklık isteği havadan iletilir.
-//! - Cevap: `[0x02, cihaz türü, 0x21, …]`.
-//!   Alıcı: `[4]` = 1 ise kulaklık bağlı. Kulaklık: `[15]` = pil yüzdesi, `[23]` = 1 kabloda (şarjda).
-//! - Kulaklık şarj standındayken alıcıdan kopar; o zaman kapalı görünür.
+//! Protocol (the request Fractal's own web configurator uses; tested with hardware):
+//! - Request: report `0x02` = `[0x02, device type, 0x21]` ("get device state"). Changes nothing.
+//!   Device type `0x11` receiver, `0xF1` headset; a headset request sent to the receiver is
+//!   relayed over the air.
+//! - Reply: `[0x02, device type, 0x21, …]`.
+//!   Receiver: `[4]` = 1 when the headset is linked. Headset: `[15]` = battery percent,
+//!   `[23]` = 1 on the cable (charging).
+//! - On its charging stand the headset unlinks from the receiver and shows as off.
 
 use super::{exchange, Driver, Found};
 use crate::model::{Battery, Kind};
@@ -30,19 +32,19 @@ const GET_STATE: u8 = 0x21;
 
 fn read(dev: &HidDevice, pid: u16) -> Option<Found> {
     if pid == PID_DONGLE && state(dev, DONGLE)?[4] != 1 {
-        return None; // alıcı cevap verdi ama kulaklık kapalı, menzil dışında ya da standında
+        return None; // the receiver answered, but the headset is off, out of range or on its stand
     }
     parse(&state(dev, HEADSET)?).map(Found::from)
 }
 
-/// "Cihaz durumunu ver" isteği; cevabın tamamı.
+/// "Get device state" request; the whole reply.
 fn state(dev: &HidDevice, target: u8) -> Option<Vec<u8>> {
     exchange(dev, &[REPORT, target, GET_STATE], |r| {
         (r.len() >= 24 && r[..3] == [REPORT, target, GET_STATE]).then(|| r.to_vec())
     })
 }
 
-/// Kulaklığın durum cevabından pil.
+/// Battery from the headset's state reply.
 fn parse(r: &[u8]) -> Option<Battery> {
     (r[15] <= 100).then_some(Battery { percent: r[15], charging: r[23] == 1 })
 }

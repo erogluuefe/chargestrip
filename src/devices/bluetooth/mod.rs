@@ -1,6 +1,6 @@
-//! Bluetooth cihazlar: işletim sisteminin bağlı cihazlardan okuyup sakladığı pil seviyesi
-//! (Windows'ta Ayarlar → Bluetooth, macOS'ta Bluetooth menüsünde görünen değer). Model başına
-//! sürücü gerekmez; cihaza hiçbir şey gönderilmez. Bluetooth şarj durumu bildirmez.
+//! Bluetooth devices: the battery level the operating system reads from connected devices and
+//! keeps (the value shown in Windows Settings → Bluetooth and in the macOS Bluetooth menu). No
+//! per-model driver is needed and nothing is sent to the device. Bluetooth has no charging flag.
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -9,7 +9,7 @@ mod windows;
 
 use super::Reading;
 
-/// Bağlı ve pil seviyesi bilinen Bluetooth cihazlar, ada/anahtara göre sabit sırada.
+/// Connected Bluetooth devices with a known battery level, in a stable order (by key).
 pub fn poll() -> Vec<Reading> {
     #[cfg(windows)]
     return windows::poll();

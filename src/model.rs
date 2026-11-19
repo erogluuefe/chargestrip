@@ -1,51 +1,51 @@
-//! Cihazdan ve platformdan bağımsız veri modeli: sürücünün okuduğu pil bilgisi ve
-//! bunun ekranda nasıl gösterileceği. Renk/sembol seçimi platform katmanındadır.
+//! Device- and platform-independent model: the battery state a driver reads and how it should be
+//! shown. Colors and symbols are chosen by the platform layer.
 
-/// Cihaz türü; hangi ikonun çizileceğini belirler.
-/// Yeni bir tür eklenirse `win::strip::glyph` ve `mac::emoji` eşlemelerine birer satır eklenir.
+/// Device type; decides which icon is drawn.
+/// A new type needs one line in `win::strip::glyph` and one in `mac::emoji`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
     Headset,
     Mouse,
     Keyboard,
     Gamepad,
-    /// Türü bilinmeyen (çoğunlukla Bluetooth) cihaz.
+    /// Device of unknown type (usually Bluetooth).
     Other,
 }
 
-/// Bir sürücünün başarılı bir okumada bildirdiği pil durumu.
+/// Battery state reported by a driver after a successful read.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Battery {
     /// 0–100
     pub percent: u8,
-    /// Şarj kablosu takılı.
+    /// Charging cable plugged in.
     pub charging: bool,
 }
 
-/// Gösterimin anlamı.
+/// What the displayed value means.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tone {
     Normal,
-    /// Pil `LOW_PERCENT` veya altında.
+    /// Battery at or below `LOW_PERCENT`.
     Low,
     Charging,
-    /// Cihaz kapalı/uykuda ya da okunamadı; varsa son bilinen değer gösterilir.
+    /// Device off, asleep or unreadable; the last known value is shown if there is one.
     Inactive,
 }
 
-/// Bu değer ve altı düşük pil sayılır.
+/// This level and below counts as low battery.
 const LOW_PERCENT: u8 = 15;
 
-/// Bir cihazın ekranda gösterilecek hali.
+/// How one device is shown.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Shown {
     pub kind: Kind,
-    /// "75%" ya da değer yoksa "–".
+    /// "75%", or "–" without a value.
     pub text: String,
     pub tone: Tone,
 }
 
-/// `battery` yoksa (cihaz kapalı/uykuda) `last` — bu oturumda son okunan yüzde — soluk gösterilir.
+/// Without a `battery` reading (device off or asleep), `last`, the last level read in this session, is shown dimmed.
 pub fn present(kind: Kind, battery: Option<Battery>, last: Option<u8>) -> Shown {
     let (percent, tone) = match battery {
         Some(b) if b.charging => (Some(b.percent), Tone::Charging),

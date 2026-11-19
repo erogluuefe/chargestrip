@@ -1,10 +1,10 @@
-//! Windows arayüzü: taskbar şeridi + düz Win32 mesaj döngüsü (pencere çerçevesi/kütüphanesi yok,
-//! en düşük bellek için).
+//! Windows UI: the taskbar strip and a plain Win32 message loop (no window framework or GUI
+//! library, for the lowest memory use).
 //!
-//! Ana iş parçacığı yalnızca mesaj bekler. Uyandıran şeyler:
-//! - `WM_APP`: sorgu iş parçacığı yeni sonuç ya da güncelleme denetimi yeni sürüm gönderdi
-//! - `WM_TIMER` (2 sn): şeridin konumu/teması değişti mi, Explorer yeniden başladı mı
-//! - `strip::WM_APP_MENU`: şeride tıklandı (sol ya da sağ)
+//! The main thread only waits for messages. What wakes it up:
+//! - `WM_APP`: the polling thread sent new readings, or the update check found a new version
+//! - `WM_TIMER` (2 s): did the strip's position or theme change, did Explorer restart
+//! - `strip::WM_APP_MENU`: the strip was clicked (left or right)
 
 mod autostart;
 mod strip;
@@ -28,8 +28,8 @@ const TICK_MS: u32 = 2000;
 
 pub fn run() {
     let main_thread = unsafe { GetCurrentThreadId() };
-    // Zamanlayıcı ilk USER32 çağrısıdır ve iş parçacığının mesaj kuyruğunu oluşturur; sorgu
-    // iş parçacığının mesajları ondan önce gönderilirse kaybolurdu.
+    // The timer is the first USER32 call and creates this thread's message queue; messages the
+    // polling thread posted before that would be lost.
     unsafe { SetTimer(null_mut(), 0, TICK_MS, None) };
 
     let (tx, rx) = mpsc::channel::<Vec<Shown>>();
@@ -44,7 +44,7 @@ pub fn run() {
     });
     let mut pending: Option<Update> = None;
 
-    // Taskbar yoksa (Explorer kapalı/yeniden başlıyor) `None` kalır, her tick'te yeniden denenir.
+    // `None` while there is no taskbar (Explorer closed or restarting); retried on every tick.
     let mut strip = Strip::create();
     let mut items: Vec<Shown> = Vec::new();
     let mut msg: MSG = unsafe { std::mem::zeroed() };
@@ -74,14 +74,14 @@ pub fn run() {
                     autostart::set_enabled(!autostart::is_enabled());
                 }
                 Some(Command::Quit) => return,
-                // İndirme birkaç saniye sürer (~2 MB); kurulum başlayınca çıkılır, kurulum
-                // uygulamayı yeniden açar. İndirme başarısızsa menüde kalır, tekrar denenebilir.
+                // The download takes a few seconds (~2 MB); exit once the installer starts, it
+                // relaunches the app. If the download fails the entry stays for another try.
                 Some(Command::Update) => {
                     if pending.as_ref().is_some_and(install) {
                         return;
                     }
                 }
-                // Elle denetim: sonuç bir pencereyle söylenir; yeni sürüm varsa hemen kurmak sorulur.
+                // Manual check: the result is shown in a message box; a new version offers to install now.
                 Some(Command::CheckUpdate) => match update::check() {
                     Ok(Some(u)) => {
                         if s.message(&fill(t().ask_update, &u.version), true) && install(&u) {
@@ -112,17 +112,17 @@ pub fn run() {
     }
 }
 
-/// Yeni sürümü indirip kurulumu başlatır; başladıysa `true` (çağıran hemen çıkmalı).
+/// Downloads the new version and starts the installer; `true` if it started (exit right away).
 fn install(u: &Update) -> bool {
     update::download(u).is_some_and(|file| update::install(&file))
 }
 
-/// Win32 API'leri için sonu sıfırla biten UTF-16 dizgi.
+/// NUL-terminated UTF-16 string for Win32 APIs.
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-/// HKCU altındaki bir DWORD değeri; yoksa `None`.
+/// A DWORD value under HKCU; `None` if missing.
 fn reg_dword(key: &str, value: &str) -> Option<u32> {
     let (key, value) = (wide(key), wide(value));
     let mut data = 0u32;

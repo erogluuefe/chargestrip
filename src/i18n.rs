@@ -1,8 +1,8 @@
-//! Arayüz metinleri. Dil, açılışta işletim sisteminin arayüz dilinden seçilir: Türkçe sistemde
-//! Türkçe, diğer her dilde İngilizce.
+//! UI strings. The language is picked at start-up from the operating system's UI language:
+//! Turkish on a Turkish system, English for every other language.
 //!
-//! Yeni bir dil eklemek: aşağıya bir `Strings` tablosu yaz ve `detect`'te o dilin koduna bağla.
-//! Metinlerde `{v}` yeni sürüm, `{cur}` çalışan sürüm numarasıyla doldurulur ([`fill`]).
+//! To add a language: write a `Strings` table below and map its code in [`for_language`].
+//! In the strings, `{v}` is replaced with the new version and `{cur}` with the running one ([`fill`]).
 
 use std::sync::OnceLock;
 
@@ -11,14 +11,14 @@ pub struct Strings {
     pub autostart: &'static str,
     pub check_updates: &'static str,
     pub quit: &'static str,
-    /// Menünün başındaki öğe: `{v}`
+    /// Entry at the top of the menu: `{v}`
     pub update_to: &'static str,
-    /// Elle denetimde yeni sürüm bulununca sorulan soru: `{v}`, `{cur}`
+    /// Question asked when a manual check finds a new version: `{v}`, `{cur}`
     pub ask_update: &'static str,
     /// `{cur}`
     pub up_to_date: &'static str,
     pub check_failed: &'static str,
-    /// macOS: elle denetimin sonucu menü satırında yazar. `{v}` / `{cur}`
+    /// macOS: a manual check's result is written into the menu entry. `{v}` / `{cur}`
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub label_new_version: &'static str,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -55,18 +55,18 @@ const TR: Strings = Strings {
     label_check_failed: "Denetlenemedi — tekrar dene",
 };
 
-/// Bu sistemin dilindeki metinler (ilk çağrıda bir kez belirlenir).
+/// Strings in this system's language (decided once, on first use).
 pub fn t() -> &'static Strings {
     static CHOSEN: OnceLock<&'static Strings> = OnceLock::new();
     CHOSEN.get_or_init(|| for_language(&system_language()))
 }
 
-/// `{v}` ve `{cur}` yer tutucularını doldurur.
+/// Fills in the `{v}` and `{cur}` placeholders.
 pub fn fill(template: &str, new_version: &str) -> String {
     template.replace("{v}", new_version).replace("{cur}", crate::update::CURRENT)
 }
 
-/// Dil kodundan ("tr", "tr-TR", "en-US"…) tablo; desteklenmeyen dilde İngilizce.
+/// Table for a language code ("tr", "tr-TR", "en-US"…); English for unsupported languages.
 fn for_language(code: &str) -> &'static Strings {
     match code.get(..2).map(str::to_ascii_lowercase).as_deref() {
         Some("tr") => &TR,
@@ -74,18 +74,18 @@ fn for_language(code: &str) -> &'static Strings {
     }
 }
 
-/// İşletim sisteminin arayüz dili, iki harfli kodla başlayan bir dizgi olarak.
+/// The operating system's UI language, as a string starting with the two-letter code.
 #[cfg(windows)]
 fn system_language() -> String {
     use windows_sys::Win32::Globalization::GetUserDefaultUILanguage;
-    // LANGID'nin alt 10 biti ana dildir; 0x1F = Türkçe.
+    // The low 10 bits of a LANGID are the primary language; 0x1F = Turkish.
     match unsafe { GetUserDefaultUILanguage() } & 0x3FF {
         0x1F => "tr".into(),
         _ => "en".into(),
     }
 }
 
-/// macOS: tercih edilen dillerin ilki (`defaults read -g AppleLanguages` → `("tr-TR", "en-US")`).
+/// macOS: the first preferred language (`defaults read -g AppleLanguages` → `("tr-TR", "en-US")`).
 #[cfg(target_os = "macos")]
 fn system_language() -> String {
     std::process::Command::new("/usr/bin/defaults")
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(for_language("tr-TR").quit, "Çıkış");
         assert_eq!(for_language("TR").quit, "Çıkış");
         assert_eq!(for_language("en-US").quit, "Quit");
-        assert_eq!(for_language("de-DE").quit, "Quit"); // desteklenmeyen → İngilizce
+        assert_eq!(for_language("de-DE").quit, "Quit"); // unsupported → English
         assert_eq!(for_language("").quit, "Quit");
     }
 

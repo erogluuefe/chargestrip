@@ -1,10 +1,12 @@
-//! Taskbar şeridi: `Shell_TrayWnd`'nin (taskbar) içine, `TrayNotifyWnd`'nin (bildirim alanı,
-//! ^ oku) hemen soluna yerleşen saydam bir alt pencere. Her cihaz için Segoe Fluent Icons ikonu +
-//! Segoe UI yüzde yazar. Taskbar'ın alt penceresi olduğundan tam ekran oyunda onunla gizlenir.
+//! Taskbar strip: a transparent child window inside `Shell_TrayWnd` (the taskbar), placed just
+//! left of `TrayNotifyWnd` (the notification area with the ^ arrow). For each device it draws a
+//! Segoe Fluent Icons glyph and the percentage in Segoe UI. Being a child of the taskbar, it hides
+//! with it in full-screen games.
 //!
-//! Çizim: her parça beyaz olarak bir DIB'e yazılır, yazının kenar yumuşatması kapsama (alfa)
-//! olarak okunup kendi rengiyle ön-çarpımlı BGRA'ya aktarılır ve `UpdateLayeredWindow` ile
-//! basılır. Katmanlı *alt* pencere, programın Windows 8+ uyumluluk bildirmesini ister (build.rs).
+//! Drawing: each part is drawn in white into a DIB, the text's anti-aliasing is read back as
+//! coverage (alpha) and written in the part's own color as premultiplied BGRA, then shown with
+//! `UpdateLayeredWindow`. A layered *child* window requires the app to declare Windows 8+
+//! compatibility (src/win/app.manifest).
 
 use super::{reg_dword, wide};
 use crate::model::{Kind, Shown, Tone};
@@ -17,10 +19,10 @@ use windows_sys::Win32::System::Threading::GetCurrentThreadId;
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-/// Şeride tıklanınca (sol ya da sağ) ana döngüye gönderilen iş parçacığı mesajı.
+/// Thread message posted to the main loop when the strip is clicked (left or right).
 pub const WM_APP_MENU: u32 = WM_APP + 1;
 
-/// Sağ tık menüsünden seçilen komut.
+/// Command picked from the menu.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Command {
     Refresh = 1,
@@ -37,30 +39,30 @@ const GRAY: Rgb = [0x9E, 0x9E, 0x9E];
 const DARK_TASKBAR_FG: Rgb = [0xFF, 0xFF, 0xFF];
 const LIGHT_TASKBAR_FG: Rgb = [0x1A, 0x1A, 0x1A];
 
-/// 96 DPI'daki ölçüler; çizimde taskbar'ın DPI'ına göre büyütülür.
+/// Sizes at 96 DPI; scaled to the taskbar's DPI when drawing.
 const ICON_PT: i32 = 16;
 const TEXT_PT: i32 = 12;
-const EDGE: i32 = 6; // şeridin iki yanındaki boşluk
-const ICON_GAP: i32 = 4; // ikon ile yazı arası
-const ITEM_GAP: i32 = 10; // iki cihaz arası
-const TRAY_GAP: i32 = 2; // şerit ile ^ oku arası
+const EDGE: i32 = 6; // padding on both sides of the strip
+const ICON_GAP: i32 = 4; // between icon and text
+const ITEM_GAP: i32 = 10; // between two devices
+const TRAY_GAP: i32 = 2; // between the strip and the ^ arrow
 
-/// Segoe Fluent Icons / Segoe MDL2 Assets kod noktası.
+/// Segoe Fluent Icons / Segoe MDL2 Assets code point.
 fn glyph(kind: Kind) -> &'static str {
     match kind {
         Kind::Headset => "\u{E7F6}",
         Kind::Mouse => "\u{E962}",
         Kind::Keyboard => "\u{E765}",
         Kind::Gamepad => "\u{E7FC}",
-        Kind::Other => "\u{E702}", // Bluetooth simgesi
+        Kind::Other => "\u{E702}", // Bluetooth symbol
     }
 }
 
-/// Hiç alıcı takılı değilken gösterilen soluk boş pil ikonu (Battery0): şerit kaybolmasın,
-/// uygulamanın çalıştığı ve sağ tık menüsü görünsün.
+/// Dimmed empty battery (Battery0) shown when nothing is connected, so the strip never vanishes
+/// and the app, with its menu, stays reachable.
 const NO_DEVICE_GLYPH: &str = "\u{E850}";
 
-/// (ikon rengi, yazı rengi). Kapalı/uykudaki cihazın tamamı soluk görünür.
+/// (icon color, text color). A device that is off or asleep is dimmed entirely.
 fn colors(tone: Tone, light_taskbar: bool) -> (Rgb, Rgb) {
     let fg = if light_taskbar { LIGHT_TASKBAR_FG } else { DARK_TASKBAR_FG };
     match tone {
@@ -71,7 +73,7 @@ fn colors(tone: Tone, light_taskbar: bool) -> (Rgb, Rgb) {
     }
 }
 
-/// Şeridin taskbar içindeki x konumu: `^` okunun solunda.
+/// The strip's x position inside the taskbar: left of the `^` arrow.
 fn place_x(taskbar_left: i32, tray_left: i32, width: i32, gap: i32) -> i32 {
     tray_left - taskbar_left - width - gap
 }
@@ -97,7 +99,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
     }
 }
 
-/// Yeniden çizim gerektiren dış koşullar; `tick` bunlar değişmişse çizer.
+/// Outside conditions that require a redraw; `tick` redraws when they change.
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Env {
     taskbar_left: i32,
@@ -107,7 +109,7 @@ struct Env {
     light: bool,
 }
 
-/// Şeritte yazılacak tek bir parça (ikon ya da yazı) ve yerleşimi.
+/// One part of the strip (icon or text) and where it goes.
 struct Part {
     font: HFONT,
     text: Vec<u16>,
@@ -118,7 +120,7 @@ struct Part {
 
 pub struct Strip {
     hwnd: HWND,
-    /// Sağ tık menüsünün sahibi: görünmez, üst düzey kendi penceremiz (menü odak ister).
+    /// Owner of the menu: our own invisible top-level window (a menu needs focus).
     owner: HWND,
     taskbar: HWND,
     tray: HWND,
@@ -127,7 +129,7 @@ pub struct Strip {
 }
 
 impl Strip {
-    /// Taskbar bulunamazsa ya da yatay değilse `None`.
+    /// `None` if there is no taskbar or it isn't horizontal.
     pub fn create() -> Option<Strip> {
         unsafe {
             let taskbar = FindWindowW(wide("Shell_TrayWnd").as_ptr(), null());
@@ -150,7 +152,7 @@ impl Strip {
                 lpszClassName: class.as_ptr(),
                 ..std::mem::zeroed()
             };
-            RegisterClassExW(&wc); // Explorer yeniden başlayınca tekrar çağrılır; "zaten var" önemsiz
+            RegisterClassExW(&wc); // called again after an Explorer restart; "already registered" is harmless
 
             let title = wide("Chargestrip");
             let hwnd = CreateWindowExW(
@@ -168,7 +170,7 @@ impl Strip {
         }
     }
 
-    /// Explorer yeniden başlarsa taskbar ve onunla birlikte şerit yok olur.
+    /// When Explorer restarts, the taskbar and the strip with it are gone.
     pub fn alive(&self) -> bool {
         unsafe { IsWindow(self.hwnd) != 0 && IsWindow(self.tray) != 0 }
     }
@@ -178,7 +180,7 @@ impl Strip {
         self.draw(self.env());
     }
 
-    /// Taskbar konumu/boyutu, simge alanı genişliği, DPI veya tema değiştiyse yeniden çizer.
+    /// Redraws if the taskbar's position/size, the tray width, the DPI or the theme changed.
     pub fn tick(&mut self) {
         let env = self.env();
         if self.drawn != Some(env) {
@@ -212,7 +214,7 @@ impl Strip {
             let icon_font = icon_font(dc, scale(ICON_PT));
             let text_font = font(scale(TEXT_PT), "Segoe UI");
 
-            // Yerleşim: [ikon] [yazı]   [ikon] [yazı] …
+            // Layout: [icon] [text]   [icon] [text] …
             let mut parts: Vec<Part> = Vec::new();
             let mut x = scale(EDGE);
             for (i, &(icon, label, tone)) in entries.iter().enumerate() {
@@ -236,7 +238,7 @@ impl Strip {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: size_of::<BITMAPINFOHEADER>() as u32,
                     biWidth: width,
-                    biHeight: -height, // eksi: satırlar yukarıdan aşağı
+                    biHeight: -height, // negative: rows top-down
                     biPlanes: 1,
                     biBitCount: 32,
                     biCompression: BI_RGB,
@@ -272,8 +274,8 @@ impl Strip {
         }
     }
 
-    /// Menüyü imlecin yanında açar ve seçilen komutu döndürür. `update`: yayımlanmış yeni sürüm
-    /// varsa numarası; menünün başına "Güncelle" eklenir.
+    /// Opens the menu next to the cursor and returns the picked command. `update`: the number of a
+    /// published new version, if any; adds "Update" at the top of the menu.
     pub fn menu(&self, autostart_on: bool, update: Option<&str>) -> Option<Command> {
         unsafe {
             let m = CreatePopupMenu();
@@ -291,11 +293,11 @@ impl Strip {
                 AppendMenuW(m, MF_STRING, Command::CheckUpdate as usize, wide(t.check_updates).as_ptr());
             }
             let version = wide(&format!("Chargestrip {}", crate::update::CURRENT));
-            AppendMenuW(m, MF_STRING | MF_GRAYED, 0, version.as_ptr()); // yalnızca bilgi
+            AppendMenuW(m, MF_STRING | MF_GRAYED, 0, version.as_ptr()); // information only
             AppendMenuW(m, MF_STRING, Command::Quit as usize, wide(t.quit).as_ptr());
             let mut pt = POINT { x: 0, y: 0 };
             GetCursorPos(&mut pt);
-            // Menünün dışına tıklanınca kapanması için sahibinin önde olması gerekir.
+            // The owner must be in the foreground for the menu to close when clicking outside it.
             SetForegroundWindow(self.owner);
             let flags = TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON | TPM_BOTTOMALIGN;
             let id = TrackPopupMenu(m, flags, pt.x, pt.y, 0, self.owner, null());
@@ -309,8 +311,8 @@ impl Strip {
 }
 
 impl Strip {
-    /// Kullanıcının istediği bir işlemin sonucunu küçük bir pencereyle söyler. `ask`: Evet/Hayır
-    /// sorar ve "Evet"i döndürür; değilse yalnızca Tamam düğmesi vardır.
+    /// Reports the result of something the user asked for in a small message box. With `ask`, shows
+    /// Yes/No and returns whether "Yes" was chosen; otherwise there is only an OK button.
     pub fn message(&self, text: &str, ask: bool) -> bool {
         let buttons = if ask { MB_YESNO | MB_ICONQUESTION } else { MB_OK | MB_ICONINFORMATION };
         let (text, title) = (wide(text), wide("Chargestrip"));
@@ -330,7 +332,7 @@ impl Drop for Strip {
     }
 }
 
-/// Parçaları sırayla beyaz çizip kapsamayı kendi renkleriyle `pixels`'e (ön-çarpımlı BGRA) aktarır.
+/// Draws the parts one by one in white and writes their coverage, in their own colors, to `pixels` (premultiplied BGRA).
 unsafe fn paint(dc: HDC, pixels: &mut [u8], height: i32, parts: &[Part]) {
     let mut out = vec![0u8; pixels.len()];
     SetBkMode(dc, TRANSPARENT as _);
@@ -342,14 +344,14 @@ unsafe fn paint(dc: HDC, pixels: &mut [u8], height: i32, parts: &[Part]) {
         SelectObject(dc, old);
         GdiFlush();
         for (src, dst) in pixels.as_chunks::<4>().0.iter().zip(out.as_chunks_mut::<4>().0) {
-            let a = src[1]; // gri tonlu yumuşatma: her kanal kapsamayı taşır
+            let a = src[1]; // grayscale anti-aliasing: every channel carries the coverage
             if a > dst[3] {
                 let mul = |c: u8| (c as u16 * a as u16 / 255) as u8;
                 *dst = [mul(rgb[2]), mul(rgb[1]), mul(rgb[0]), a];
             }
         }
     }
-    // Tamamen saydam pikseller tıklamayı alttakine geçirir; şeridin her yeri sağ tıklanabilsin.
+    // Fully transparent pixels pass clicks through; keep every pixel of the strip clickable.
     for p in out.as_chunks_mut::<4>().0 {
         p[3] = p[3].max(1);
     }
@@ -364,7 +366,7 @@ unsafe fn font(px: i32, face: &str) -> HFONT {
     )
 }
 
-/// Windows 11'de Segoe Fluent Icons; yoksa (Windows 10) aynı kod noktalarına sahip Segoe MDL2 Assets.
+/// Segoe Fluent Icons on Windows 11; otherwise (Windows 10) Segoe MDL2 Assets, which has the same code points.
 unsafe fn icon_font(dc: HDC, px: i32) -> HFONT {
     const FLUENT: &str = "Segoe Fluent Icons";
     let f = font(px, FLUENT);
@@ -402,9 +404,9 @@ mod tests {
 
     #[test]
     fn placed_left_of_tray() {
-        // taskbar 0'dan, ^ oku 2229'dan başlıyor; şerit 150 px, 2 px boşluk
+        // taskbar starts at 0, the ^ arrow at 2229; strip 150 px wide, 2 px gap
         assert_eq!(place_x(0, 2229, 150, 2), 2077);
-        // sola uzanan ikinci monitör: negatif başlangıç
+        // second monitor to the left: negative origin
         assert_eq!(place_x(-864, 0, 100, 0), 764);
     }
 }

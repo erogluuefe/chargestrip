@@ -1,8 +1,8 @@
-//! macOS: Bluetooth pil seviyesi, `system_profiler SPBluetoothDataType -json` çıktısından
-//! (Bluetooth menüsünde görünen değerler; Magic Mouse/Keyboard, AirPods ve diğer kulaklıklar).
+//! macOS: Bluetooth battery levels from `system_profiler SPBluetoothDataType -json` (the values
+//! shown in the Bluetooth menu; Magic Mouse/Keyboard, AirPods and other headphones).
 //!
-//! Araç yaklaşık bir saniye sürdüğünden en çok `EVERY` aralıkla çalıştırılır; arada son sonuç
-//! kullanılır. JSON'dan yalnızca birkaç düz alan gerektiği için ayrıştırıcı kütüphanesi yok.
+//! The tool takes about a second, so it runs at most every `EVERY`; the last result is reused in
+//! between. Only a few flat fields are needed from the JSON, so there is no parser dependency.
 
 use crate::devices::Reading;
 use crate::model::{Battery, Kind};
@@ -33,13 +33,13 @@ pub fn poll() -> Vec<Reading> {
     readings
 }
 
-/// Çıktının biçimi (yalnızca bağlı cihazlar kullanılır):
+/// Output format (only connected devices are used):
 /// ```text
 /// "device_connected" : [ { "AirPods Max" : { "device_batteryLevelMain" : "100%",
 ///                                             "device_minorType" : "Headphones", ... } }, ... ],
 /// "device_not_connected" : [ ... ]
 /// ```
-/// Kulaklık tekleri sol/sağ ayrı bildirir; ikisinden düşük olanı gösterilir (kutu yok sayılır).
+/// Earbuds report left and right separately; the lower one is shown (the case is ignored).
 fn parse(json: &str) -> Vec<Reading> {
     let Some(start) = json.find("\"device_connected\"") else { return Vec::new() };
     let section = &json[start..];
@@ -54,7 +54,7 @@ fn parse(json: &str) -> Vec<Reading> {
     }
     let mut devices: Vec<Device> = Vec::new();
     for line in section.lines().skip(1).map(str::trim) {
-        // `"Ad" : {` yeni bir cihazı başlatır; cihazın alanları düz `"anahtar" : "değer"` satırlarıdır.
+        // `"Name" : {` starts a new device; its fields are flat `"key" : "value"` lines.
         if let Some(name) = line.strip_suffix('{').and_then(|l| quoted(l.trim_end().strip_suffix(':')?.trim_end())) {
             devices.push(Device { name: name.to_string(), ..Default::default() });
             continue;
@@ -89,7 +89,7 @@ fn quoted(s: &str) -> Option<&str> {
     s.strip_prefix('"')?.strip_suffix('"')
 }
 
-/// `"anahtar" : "değer",` → (anahtar, değer)
+/// `"key" : "value",` → (key, value)
 fn field(line: &str) -> Option<(&str, &str)> {
     let (k, v) = line.trim_end_matches(',').split_once(" : ")?;
     Some((quoted(k)?, quoted(v)?))

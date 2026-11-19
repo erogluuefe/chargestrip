@@ -1,7 +1,7 @@
-# Sürüm: "v0.2.0" gibi bir etiket gönderilince Windows kurulum dosyasını ve macOS paketini
-# üretip GitHub Releases'e koyar. Actions sekmesinden elle de çalıştırılabilir (yalnızca derler,
-# dosyaları "Artifacts" olarak bırakır, Release oluşturmaz).
-name: Sürüm
+# Release: pushing a tag such as "v1.2.3" builds the Windows installer and the macOS disk image
+# and publishes them on GitHub Releases. It can also be run by hand from the Actions tab; that only
+# builds and keeps the files as artifacts, without creating a release.
+name: Release
 
 on:
   push:
@@ -17,23 +17,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Sürüm numarası
+      - name: Version
         id: ver
         shell: pwsh
         run: |
           $cargo = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
           if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne "v$cargo") {
-            throw "Etiket (${{ github.ref_name }}) Cargo.toml sürümüyle (v$cargo) aynı değil"
+            throw "Tag ${{ github.ref_name }} does not match the Cargo.toml version (v$cargo)"
           }
           "version=$cargo" >> $env:GITHUB_OUTPUT
 
       - name: Test
         run: cargo test --locked
 
-      - name: Derle
+      - name: Build
         run: cargo build --release --locked
 
-      - name: Kurulum dosyası
+      - name: Installer
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
@@ -48,23 +48,23 @@ jobs:
 
   macos:
     runs-on: macos-latest # Apple Silicon (arm64)
-    timeout-minutes: 30 # bir adım takılırsa sürüm saatlerce beklemesin
+    timeout-minutes: 30 # a stuck step shouldn't hold the release for hours
     steps:
       - uses: actions/checkout@v7
 
       - name: Test
         run: cargo test --locked
 
-      - name: Derle
+      - name: Build
         run: cargo build --release --locked
 
-      - name: .app ve .dmg
+      - name: App bundle and disk image
         run: |
           V=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           APP=Chargestrip.app/Contents
           mkdir -p "$APP/MacOS" "$APP/Resources"
           cp target/release/chargestrip "$APP/MacOS/"
-          # Simge: 1024 px PNG'den macOS'un istediği boyut setiyle .icns.
+          # Icon: .icns with the sizes macOS expects, from the 1024 px PNG.
           mkdir AppIcon.iconset
           for n in 16 32 128 256 512; do
             sips -z $n $n assets/icon.png --out "AppIcon.iconset/icon_${n}x${n}.png" >/dev/null
@@ -85,12 +85,13 @@ jobs:
             <key>LSUIElement</key><true/>
           </dict></plist>
           EOF
-          # Ad-hoc imza (Apple hesabı gerektirmez): imzasız paketi macOS "hasarlı" sayar ve
-          # açtırmaz; ad-hoc imzalıyı "Yine de aç" ile açtırır. Info.plist de imzaya bağlanır.
+          # Ad-hoc signature (no Apple account needed): macOS calls an unsigned bundle "damaged"
+          # and refuses to open it; an ad-hoc signed one can be allowed with "Open Anyway".
+          # Info.plist is sealed by the signature too.
           codesign --force --deep --sign - Chargestrip.app
           codesign --verify --verbose Chargestrip.app
 
-          # Disk kalıbı: açılınca uygulama ve yanında "Uygulamalar" kısayolu; sürükleyip bırakmak yeter.
+          # Disk image: the app next to an Applications shortcut, ready to drag and drop.
           mkdir dmg
           cp -R Chargestrip.app dmg/
           ln -s /Applications dmg/Applications
@@ -102,7 +103,7 @@ jobs:
           path: Chargestrip-macOS-*.dmg
 
   release:
-    # macOS sürümü henüz denenmedi; o başarısız olsa da Windows sürümü yayımlanır.
+    # Publish the Windows build even if the macOS job fails (e.g. no macOS runner available).
     needs: [windows, macos]
     if: ${{ always() && github.ref_type == 'tag' && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest

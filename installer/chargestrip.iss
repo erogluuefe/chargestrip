@@ -1,9 +1,9 @@
-; Chargestrip Windows kurulumu (Inno Setup 6).
-; Derleme:  ISCC.exe /DAppVersion=0.2.0 installer\chargestrip.iss   → dist\Chargestrip-Setup-0.2.0.exe
-; Önce:     cargo build --release
+; Chargestrip installer for Windows (Inno Setup 6).
+; Build:    ISCC.exe /DAppVersion=0.2.0 installer\chargestrip.iss   → dist\Chargestrip-Setup-0.2.0.exe
+; First:    cargo build --release
 ;
-; Yönetici izni istemez; kullanıcının kendi klasörüne (%LOCALAPPDATA%\Programs\Chargestrip) kurar.
-; Açılışta başlatma, uygulamanın sağ tık menüsüyle aynı kayıt defteri değerini kullanır.
+; No administrator rights: installs for the current user (%LOCALAPPDATA%\Programs\Chargestrip).
+; "Start with Windows" uses the same registry value as the app's own menu entry.
 
 #define AppName "Chargestrip"
 #define AppExe "chargestrip.exe"
@@ -12,7 +12,7 @@
 #endif
 
 [Setup]
-; Kimlik sabit kalmalı: güncellemeler eski kurulumun üstüne yazılır.
+; Must never change: updates install over the previous installation.
 AppId={{6B0F3C2E-8D4A-4F7B-9C1E-2A5D7E9F0B13}
 AppName={#AppName}
 AppVersion={#AppVersion}
@@ -36,7 +36,7 @@ UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 
 [Languages]
-; Sistem dili listede yoksa ilk dil (İngilizce) kullanılır.
+; The first language (English) is used when the system language isn't listed.
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 
@@ -56,23 +56,23 @@ Source: "..\target\release\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 
 [Registry]
-; Kutucuk işaretliyse açılışta başlat.
+; Start with Windows if the box is ticked.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
   ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"""; Tasks: autostart
-; Kaldırırken değeri her durumda sil (uygulamanın menüsünden açılmış olsa da).
+; Always remove the value on uninstall (it may also have been set from the app's menu).
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; \
   ValueName: "{#AppName}"; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
-; Uygulamanın kendi "Güncelle" komutu sessiz kurar; bitince uygulamayı yeniden açar.
+; The in-app "Update" installs silently; relaunch the app when done.
 Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#AppExe}"; Flags: runhidden; RunOnceId: "StopApp"
 
 [Code]
-// Güncelleme/yeniden kurulumda çalışan kopya dosyayı kilitlemesin diye önce kapatılır.
+// Close a running copy first so it doesn't lock the file during an update or reinstall.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Code: Integer;

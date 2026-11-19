@@ -1,15 +1,15 @@
-"""Chargestrip logosu: yeşil degrade yuvarlak kare, beyaz pil, koyu yeşil şimşek.
+"""Chargestrip logo: green gradient rounded square, white battery, dark green lightning bolt.
 
-Çıktılar (bu klasöre):
-  icon.png  1024 px, macOS paketi için (CI'da .icns'e çevrilir)
-  icon.ico  16–256 px, Windows .exe ve kurulum programı için
+Outputs (into this folder):
+  icon.png  1024 px, for the macOS bundle (converted to .icns in CI)
+  icon.ico  16–256 px, for the Windows .exe and the installer
 
-Çalıştırma: pip install pillow && python assets/make_icon.py
+Run: pip install pillow && python assets/make_icon.py
 """
 from pathlib import Path
 from PIL import Image, ImageDraw
 
-N, K = 1024, 4  # hedef boyut, kenar yumuşatma için büyütme
+N, K = 1024, 4  # target size, supersampling factor for smooth edges
 W = N * K
 OUT = Path(__file__).parent
 
@@ -21,7 +21,7 @@ def s(*v):
 def draw() -> Image.Image:
     img = Image.new("RGBA", (W, W), (0, 0, 0, 0))
 
-    # Zemin: yukarıdan aşağı açık yeşilden koyu yeşile.
+    # Background: light green at the top to dark green at the bottom.
     grad = Image.new("RGBA", (W, W))
     gd = ImageDraw.Draw(grad)
     top, bottom = (76, 195, 110), (30, 130, 90)
@@ -34,10 +34,10 @@ def draw() -> Image.Image:
 
     d = ImageDraw.Draw(img)
     white = (255, 255, 255, 255)
-    d.rounded_rectangle(s(190, 330, 790, 694), radius=90 * K, fill=white)  # pil gövdesi
-    d.rounded_rectangle(s(800, 446, 856, 578), radius=22 * K, fill=white)  # pil ucu
+    d.rounded_rectangle(s(190, 330, 790, 694), radius=90 * K, fill=white)  # battery body
+    d.rounded_rectangle(s(800, 446, 856, 578), radius=22 * K, fill=white)  # battery tip
 
-    # Şimşek
+    # Lightning bolt
     cx, cy, size = 490, 512, 300
     bolt = [(0.10, -0.50), (-0.28, 0.06), (-0.02, 0.06), (-0.10, 0.50), (0.28, -0.06), (0.02, -0.06)]
     d.polygon([((cx + x * size) * K, (cy + y * size) * K) for x, y in bolt], fill=(30, 120, 70, 255))
@@ -50,4 +50,4 @@ if __name__ == "__main__":
     icon.save(OUT / "icon.png")
     sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
     icon.save(OUT / "icon.ico", sizes=[(n, n) for n in sizes])
-    print("icon.png, icon.ico yazıldı")
+    print("wrote icon.png and icon.ico")

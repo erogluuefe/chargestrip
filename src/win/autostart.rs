@@ -1,4 +1,4 @@
-//! Windows açılışında başlatma: HKCU\…\Run altında programın yolu.
+//! Start with Windows: the program's path under HKCU\…\Run.
 
 use super::wide;
 use std::ptr::null_mut;
@@ -21,7 +21,7 @@ pub fn is_enabled() -> bool {
     status == 0
 }
 
-/// Kaydı ekler/siler; çalışan programın şu anki yolu yazılır.
+/// Adds or removes the value; the running program's current path is stored.
 pub fn set_enabled(on: bool) {
     let (key, value) = (wide(RUN_KEY), wide(VALUE));
     unsafe {

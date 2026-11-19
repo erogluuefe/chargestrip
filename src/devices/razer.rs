@@ -1,18 +1,18 @@
-//! Razer kablosuz fareler ve klavyeler (VID `1532`): alıcı ya da şarj kablosu.
+//! Razer wireless mice and keyboards (VID `1532`): receiver or charging cable.
 //!
-//! Protokol: 90 baytlık feature raporu (rapor no 0):
-//! `[0]` durum, `[1]` işlem no, `[2..4]` kalan paket, `[4]` protokol, `[5]` veri boyu,
-//! `[6]` komut sınıfı, `[7]` komut, `[8..88]` argümanlar, `[88]` sağlama (2..88 XOR).
-//! - Pil: sınıf `07` komut `80` → `args[1]` = 0–255. Şarj: sınıf `07` komut `84` → `args[1]` = 1.
-//!   İkisi de yalnızca okur.
-//! - Cevap durumu: `01` meşgul, `02` tamam, `03` başarısız, `04` cihaza ulaşılamadı (kapalı ya da
-//!   yanlış işlem no), `05` desteklenmiyor.
-//! - İşlem numarası modele göre değişir: klavyelerinki bilinir, fareler için bilinen değerler
-//!   sırayla denenir. Razer Synapse aynı feature "posta kutusunu" kullandığından başka bir
-//!   isteğe ait cevap gelirse istek yenilenir.
+//! Protocol: 90-byte feature report (report ID 0):
+//! `[0]` status, `[1]` transaction ID, `[2..4]` remaining packets, `[4]` protocol, `[5]` data size,
+//! `[6]` command class, `[7]` command, `[8..88]` arguments, `[88]` checksum (XOR of 2..88).
+//! - Battery: class `07` command `80` → `args[1]` = 0–255. Charging: class `07` command `84` →
+//!   `args[1]` = 1. Both only read.
+//! - Reply status: `01` busy, `02` OK, `03` failed, `04` device unreachable (off, or wrong
+//!   transaction ID), `05` not supported.
+//! - The transaction ID depends on the model: known for keyboards; for mice the known values are
+//!   tried in turn. Razer Synapse shares the same feature "mailbox", so a reply that belongs to
+//!   another request means sending ours again.
 //!
-//! Pil fare/klavye arayüzünden okunur; hangi arayüzün cevap vereceği modele göre değiştiği için
-//! eşleşen tüm arayüzler denenir (`usage_page: ANY`).
+//! The battery is read from the mouse/keyboard interface; which interface answers depends on the
+//! model, so every matching interface is tried (`usage_page: ANY`).
 
 use super::{Driver, Found, ANY};
 use crate::model::{Battery, Kind};
@@ -27,7 +27,7 @@ const CLASS_POWER: u8 = 0x07;
 const GET_BATTERY: u8 = 0x80;
 const GET_CHARGING: u8 = 0x84;
 const ARGS_SIZE: u8 = 0x02;
-/// Feature raporu, rapor numarası dahil.
+/// Feature report length, report ID included.
 const LEN: usize = 91;
 
 fn read(dev: &HidDevice, pid: u16) -> Option<Found> {
@@ -44,7 +44,7 @@ fn read(dev: &HidDevice, pid: u16) -> Option<Found> {
     })
 }
 
-/// Bir güç komutu gönderir; "tamam" cevabının argümanları, yoksa `None`.
+/// Sends a power command; the arguments of the "OK" reply, otherwise `None`.
 fn command(dev: &HidDevice, id: u8, cmd: u8, keyboard: bool) -> Option<[u8; 80]> {
     let request = request(id, cmd);
     let mut send = true;
@@ -52,8 +52,8 @@ fn command(dev: &HidDevice, id: u8, cmd: u8, keyboard: bool) -> Option<[u8; 80]>
         if send {
             dev.send_feature_report(&request).ok()?;
         }
-        // Cevap hazırlanırken bekle (kablosuz klavyeler ~5 ms); uzun beklemek Synapse'in araya
-        // girmesine yol açar.
+        // Wait while the reply is prepared (wireless keyboards ~5 ms); waiting longer lets
+        // Synapse get in between.
         let wait = if keyboard { 5 } else if attempt == 0 { 15 } else { 40 };
         std::thread::sleep(Duration::from_millis(wait));
         send = true;
@@ -63,8 +63,8 @@ fn command(dev: &HidDevice, id: u8, cmd: u8, keyboard: bool) -> Option<[u8; 80]>
         }
         match parse(&reply[1..], id, cmd) {
             Reply::Ok(args) => return Some(args),
-            Reply::Busy => send = false, // aynı isteğin bitmesini bekle
-            Reply::Other | Reply::Unreachable => {} // başka bir isteğin cevabı ya da geçici kopma: yenile
+            Reply::Busy => send = false, // wait for the same request to finish
+            Reply::Other | Reply::Unreachable => {} // another request's reply or a brief dropout: send again
             Reply::Failed => return None,
         }
     }
@@ -72,7 +72,7 @@ fn command(dev: &HidDevice, id: u8, cmd: u8, keyboard: bool) -> Option<[u8; 80]>
 }
 
 fn request(id: u8, cmd: u8) -> [u8; LEN] {
-    let mut req = [0u8; LEN]; // [0] rapor numarası 0
+    let mut req = [0u8; LEN]; // [0] report ID 0
     let r = &mut req[1..];
     r[1] = id;
     r[5] = ARGS_SIZE;
@@ -92,7 +92,7 @@ enum Reply {
     Busy,
     Unreachable,
     Failed,
-    /// Bu isteğe ait değil (Synapse'in ya da bozuk).
+    /// Not a reply to this request (Synapse's, or corrupt).
     Other,
 }
 
@@ -110,17 +110,17 @@ fn parse(r: &[u8], id: u8, cmd: u8) -> Reply {
     }
 }
 
-/// Klavyelerin pil sorgusunda kullandığı işlem numarası; bilinmiyorsa `None`.
+/// Transaction ID keyboards use for the battery query; `None` if unknown.
 fn keyboard_transaction_id(pid: u16) -> Option<u8> {
     match pid {
-        0x025C | 0x0271 | 0x0290 | 0x0296 | 0x02BA | 0x02C9 | 0x02D2 | 0x02D5 => Some(0x9F), // kablosuz
-        0x0258 | 0x0292 | 0x0298 | 0x02B9 | 0x02CD | 0x02D4 | 0x02D7 => Some(0x1F),          // kablolu / Joro
-        0x025A => Some(0x3F),                                                                // BlackWidow V3 Pro kablolu
+        0x025C | 0x0271 | 0x0290 | 0x0296 | 0x02BA | 0x02C9 | 0x02D2 | 0x02D5 => Some(0x9F), // wireless
+        0x0258 | 0x0292 | 0x0298 | 0x02B9 | 0x02CD | 0x02D4 | 0x02D7 => Some(0x1F),          // wired / Joro
+        0x025A => Some(0x3F),                                                                // BlackWidow V3 Pro wired
         _ => None,
     }
 }
 
-/// Fare ve alıcıları (DeathAdder V3 Pro: `00B6` kablo, `00B7` HyperSpeed alıcısı; diğerleri dahil).
+/// Mice and their receivers (DeathAdder V3 Pro: `00B6` cable, `00B7` HyperSpeed receiver; and others).
 const MOUSE_PIDS: &[u16] = &[
     0x0013, 0x0015, 0x0016, 0x001F, 0x0020, 0x0024, 0x0025, 0x0029, 0x002E, 0x002F, 0x0032, 0x0034, 0x0036,
     0x0037, 0x0038, 0x0039, 0x003E, 0x003F, 0x0040, 0x0041, 0x0042, 0x0043, 0x0044, 0x0045, 0x0046, 0x0048,
@@ -134,7 +134,7 @@ const MOUSE_PIDS: &[u16] = &[
     0x00DF, 0x00E0, 0x00E5, 0x00E6,
 ];
 
-/// Klavyeler, tuş takımları ve alıcıları.
+/// Keyboards, keypads and their receivers.
 const KEYBOARD_PIDS: &[u16] = &[
     0x010D, 0x010E, 0x010F, 0x0111, 0x0113, 0x0118, 0x011A, 0x011B, 0x011C, 0x0201, 0x0202, 0x0203, 0x0204,
     0x0205, 0x0207, 0x0208, 0x0209, 0x020F, 0x0210, 0x0211, 0x0214, 0x0216, 0x0217, 0x021A, 0x021E, 0x021F,
@@ -152,7 +152,7 @@ const KEYBOARD_PIDS: &[u16] = &[
 mod tests {
     use super::*;
 
-    /// Cihazın vereceği cevap: isteğin kopyası, durum ve argümanlar değişmiş, sağlama yeniden.
+    /// The device's reply: a copy of the request with status and arguments set, checksum recomputed.
     fn reply(status: u8, id: u8, cmd: u8, arg1: u8) -> [u8; 90] {
         let req = request(id, cmd);
         let mut r: [u8; 90] = req[1..].try_into().unwrap();
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn request_layout() {
         let r = request(0x1F, GET_BATTERY);
-        assert_eq!(r[0], 0); // rapor no
+        assert_eq!(r[0], 0); // report ID
         assert_eq!(&r[1..9], &[0, 0x1F, 0, 0, 0, 0x02, 0x07, 0x80]);
         assert_eq!(r[89], 0x02 ^ 0x07 ^ 0x80);
     }
@@ -181,8 +181,8 @@ mod tests {
 
     #[test]
     fn foreign_or_corrupt_reply_is_ignored() {
-        assert_eq!(parse(&reply(0x02, 0x3F, GET_BATTERY, 9), 0x1F, GET_BATTERY), Reply::Other); // başka işlem no
-        assert_eq!(parse(&reply(0x02, 0x1F, GET_CHARGING, 1), 0x1F, GET_BATTERY), Reply::Other); // başka komut
+        assert_eq!(parse(&reply(0x02, 0x3F, GET_BATTERY, 9), 0x1F, GET_BATTERY), Reply::Other); // another transaction ID
+        assert_eq!(parse(&reply(0x02, 0x1F, GET_CHARGING, 1), 0x1F, GET_BATTERY), Reply::Other); // another command
         let mut r = reply(0x02, 0x1F, GET_BATTERY, 9);
         r[88] ^= 1;
         assert_eq!(parse(&r, 0x1F, GET_BATTERY), Reply::Other);

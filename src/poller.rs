@@ -1,5 +1,5 @@
-//! Arka plan sorgu döngüsü. HID okumaları (her biri en çok 1 sn) arayüzü bekletmesin diye
-//! ayrı bir iş parçacığında, `INTERVAL` aralıkla ya da yenileme istenince hemen çalışır.
+//! Background polling loop. Runs on its own thread so HID reads (up to 1 s each) never block the
+//! UI: every `INTERVAL`, or right away when a refresh is requested.
 
 use crate::devices::{self, Reading};
 use crate::model::{present, Shown};
@@ -10,14 +10,14 @@ use std::time::Duration;
 
 const INTERVAL: Duration = Duration::from_secs(60);
 
-/// Döngüyü başlatır; her turun sonucu `notify` ile iletilir (takılı alıcısı olan cihazlar
-/// `DRIVERS` sırasıyla, ardından bağlı Bluetooth cihazlar). Dönen göndericiye `()` yollamak
-/// hemen yeniden sorgular; gönderici düşürülürse döngü biter.
+/// Starts the loop; each round's result goes to `notify` (devices whose receiver is plugged in,
+/// in `DRIVERS` order, then connected Bluetooth devices). Sending `()` to the returned sender
+/// polls again right away; dropping the sender ends the loop.
 pub fn spawn(notify: impl Fn(Vec<Shown>) + Send + 'static) -> Sender<()> {
     let (tx, rx) = mpsc::channel::<()>();
     std::thread::Builder::new()
         .name("poller".into())
-        .stack_size(256 * 1024) // varsayılan 1 MB gereksiz; HID tamponları küçük
+        .stack_size(256 * 1024) // the default 1 MB isn't needed; HID buffers are small
         .spawn(move || {
             let mut api: Option<HidApi> = None;
             let mut last = HashMap::new();
@@ -28,18 +28,18 @@ pub fn spawn(notify: impl Fn(Vec<Shown>) + Send + 'static) -> Sender<()> {
                 let readings = devices::poll(api.as_mut());
                 notify(snapshot(&readings, &mut last));
                 match rx.recv_timeout(INTERVAL) {
-                    Ok(()) => while rx.try_recv().is_ok() {}, // art arda istekleri birleştir
+                    Ok(()) => while rx.try_recv().is_ok() {}, // coalesce back-to-back requests
                     Err(RecvTimeoutError::Timeout) => {}
                     Err(RecvTimeoutError::Disconnected) => break,
                 }
             }
         })
-        .expect("sorgu iş parçacığı başlatılamadı");
+        .expect("failed to start the polling thread");
     tx
 }
 
-/// Okumaları gösterime çevirir; başarılı okumalar cihaz anahtarıyla `last`'a kaydedilir ki
-/// cihaz uyurken son değer gösterilebilsin.
+/// Turns readings into what to show; successful readings are stored in `last` by device key so
+/// the last value can be shown while the device sleeps.
 fn snapshot(readings: &[Reading], last: &mut HashMap<String, u8>) -> Vec<Shown> {
     readings
         .iter()
@@ -75,7 +75,7 @@ mod tests {
     fn last_value_follows_the_device_not_the_position() {
         let mut last = HashMap::new();
         snapshot(&[r("usb:0", Some(70)), r("bt:a", Some(30))], &mut last);
-        // usb:0 çıkarıldı; bt:a artık ilk sırada ama kendi değerini korur.
+        // usb:0 was unplugged; bt:a is now first but keeps its own value.
         let s = snapshot(&[r("bt:a", None)], &mut last);
         assert_eq!(s[0].text, "30%");
     }

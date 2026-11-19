@@ -1,6 +1,5 @@
-//! macOS arayüzü: menü çubuğunda tek bir durum öğesi, başlığı ör. "🎧 75%  🖱 64% ⚡".
-//! Menü çubuğu öğesi NSApplication olay döngüsü ister; bunu `tao` sağlar. Dock'ta simge çıkmaz.
-//! Not: CI'da derleniyor; macOS'ta ilk kez 2026-11-19'da (alıcısız) çalıştırıldı.
+//! macOS UI: a single status item in the menu bar, titled e.g. "🎧 75%  🖱 64% ⚡".
+//! A menu bar item needs an NSApplication event loop, which `tao` provides. No Dock icon.
 
 use crate::i18n::{fill, t};
 use crate::model::{Kind, Shown, Tone};
@@ -29,8 +28,8 @@ fn emoji(kind: Kind) -> &'static str {
     }
 }
 
-/// Menü çubuğu başlığı. Başlık tek renk olduğundan durum sembolle anlatılır.
-/// Hiç alıcı takılı değilse "🔋 –": öğe kaybolmasın, uygulamanın çalıştığı görünsün.
+/// Menu bar title. The title has a single color, so the state is shown with a symbol.
+/// "🔋 –" when nothing is connected, so the item never disappears and the app is visibly running.
 fn title(items: &[Shown]) -> String {
     if items.is_empty() {
         return "🔋 –".into();
@@ -55,15 +54,15 @@ struct Ui {
     menu: Menu,
     refresh: MenuItem,
     autostart: CheckMenuItem,
-    /// "Güncellemeleri denetle"; elle denetimin sonucu da bu satırda yazar.
+    /// "Check for updates"; a manual check's result is also written here.
     check: MenuItem,
     quit: MenuItem,
-    /// Yayımlanmış yeni sürüm ve menünün başına eklenen "Güncelle" öğesi.
+    /// A published new version and the "Update" entry added at the top of the menu.
     update: Option<(Update, MenuItem)>,
 }
 
 impl Ui {
-    /// Yeni sürümü menünün başına "Güncelle (x.y.z)" olarak ekler (bir kez).
+    /// Adds the new version at the top of the menu as "Update to x.y.z" (once).
     fn offer(&mut self, u: Update) {
         if self.update.is_some() {
             return;
@@ -88,13 +87,13 @@ pub fn run() {
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Wait;
         match event {
-            // Menü çubuğu öğesi ancak olay döngüsü başladıktan sonra oluşturulabilir.
+            // The menu bar item can only be created once the event loop has started.
             Event::NewEvents(StartCause::Init) => {
                 let refresh_item = MenuItem::new(t().refresh, true, None);
                 let autostart = CheckMenuItem::new(t().autostart, true, autostart::is_enabled(), None);
                 let check = MenuItem::new(t().check_updates, true, None);
                 let quit = MenuItem::new(t().quit, true, None);
-                // Yalnızca bilgi: soluk, tıklanmaz.
+                // Information only: dimmed, not clickable.
                 let version = MenuItem::new(format!("Chargestrip {}", update::CURRENT), false, None);
                 let menu = Menu::new();
                 let _ = menu.append_items(&[
@@ -141,7 +140,7 @@ pub fn run() {
                 } else if e.id == *ui.quit.id() {
                     *flow = ControlFlow::Exit;
                 } else if e.id == *ui.check.id() {
-                    // Elle denetim; sonuç menüde yazar, yeni sürüm varsa en üstte "Güncelle" çıkar.
+                    // Manual check; the result is written in the menu, and a new version adds "Update" at the top.
                     match update::check() {
                         Ok(Some(u)) => {
                             ui.check.set_text(fill(t().label_new_version, &u.version));
@@ -151,8 +150,8 @@ pub fn run() {
                         Err(()) => ui.check.set_text(t().label_check_failed),
                     }
                 } else if let Some((u, item)) = &ui.update {
-                    // İndirme birkaç saniye sürer; kurulum betiği bu süreç çıkınca paketi değiştirip
-                    // yeniden açar. Başarısızsa öğe menüde kalır, tekrar denenebilir.
+                    // The download takes a few seconds; the install script swaps the bundle once this
+                    // process exits and reopens it. On failure the entry stays for another try.
                     if e.id == *item.id() && update::download(u).is_some_and(|f| update::install(&f)) {
                         *flow = ControlFlow::Exit;
                     }
@@ -163,7 +162,7 @@ pub fn run() {
     });
 }
 
-/// Açılışta başlatma: ~/Library/LaunchAgents altında bir LaunchAgent dosyası.
+/// Start at login: a LaunchAgent file in ~/Library/LaunchAgents.
 mod autostart {
     use std::path::PathBuf;
 

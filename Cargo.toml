@@ -2,16 +2,16 @@
 name = "chargestrip"
 version = "0.5.1"
 edition = "2021"
-description = "Kablosuz cihazların pil durumunu Windows taskbar'ında / macOS menü çubuğunda gösterir"
+description = "Battery levels of wireless headsets, mice, keyboards and Bluetooth devices in the Windows taskbar and the macOS menu bar"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/erogluuefe/chargestrip"
 
 [dependencies]
-# Windows'ta saf Rust arka uç (C derlemesi yok); macOS'ta IOKit arka ucu otomatik seçilir.
+# Pure Rust backend on Windows (no C build); macOS uses the IOKit backend automatically.
 hidapi = { version = "2.6", default-features = false, features = ["windows-native"] }
 
 [target.'cfg(windows)'.dependencies]
-# hidapi ile aynı sürüm: tek kopya derlenir.
+# Same version as hidapi's, so only one copy is built.
 windows-sys = { version = "0.61", features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Devices_Properties",
@@ -25,7 +25,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
-# Koşulsuz: build.rs her makinede derlenir; kaynakları yalnızca Windows hedefinde gömer.
+# Unconditional: build.rs is compiled on every host but only embeds resources for Windows targets.
 [build-dependencies]
 winresource = "0.1"
 

@@ -1,10 +1,10 @@
-// Bir programın belirli bir USB cihazıyla (VID) HID trafiğini yalnızca DİNLER; hiçbir şey göndermez.
-// run.py tarafından yüklenir; __VID__ yer tutucusu 4 haneli küçük harf hex VID ile değiştirilir.
+// Only LISTENS to a program's HID traffic with one USB device (VID); never sends anything.
+// Loaded by run.py, which replaces the __VID__ placeholder with the 4-digit lowercase hex VID.
 const VID = /vid___VID__/i;
 const hid = Module.load('hid.dll');
 const kb = Process.getModuleByName('KERNELBASE.dll');
-const handles = new Map(); // dosya tanıtıcısı → arayüz adı (mi_03 vb.)
-const pending = new Map(); // bekleyen OVERLAPPED okuma → tampon
+const handles = new Map(); // file handle → interface name (mi_03 etc.)
+const pending = new Map(); // pending OVERLAPPED read → buffer
 
 function hex(p, n) {
   if (p.isNull() || n <= 0) return '';
@@ -46,7 +46,7 @@ Interceptor.attach(kb.getExportByName('GetOverlappedResult'), {
     }
   }
 });
-// Feature/output raporları ReadFile/WriteFile yerine bu çağrılarla da gidebilir.
+// Feature and output reports may use these calls instead of ReadFile/WriteFile.
 for (const [name, after] of [['HidD_SetFeature', false], ['HidD_GetFeature', true],
                              ['HidD_SetOutputReport', false], ['HidD_GetInputReport', true]]) {
   Interceptor.attach(hid.getExportByName(name), {

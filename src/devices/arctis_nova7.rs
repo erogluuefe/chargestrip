@@ -1,16 +1,16 @@
-//! SteelSeries Arctis Nova 7P kulaklık.
+//! SteelSeries Arctis Nova 7P headset.
 //!
-//! Protokol:
-//! - İstek `[0x00, 0xB0]`: rapor no 0 + "durum oku". Ayar değiştirmez.
-//! - Cevap: `[0]` = 0xB0, `[2]` = pil, `[3]` = durum (0x00 kulaklık kapalı, 0x01/0x02 şarjda).
-//! - `0x220A` (eski yazılım) pili 0–4 kademe bildirir (%0/25/50/75/100);
-//!   Ocak 2026 yazılımıyla gelen `0x22A7` / `0x2298` doğrudan yüzde bildirir.
+//! Protocol:
+//! - Request `[0x00, 0xB0]`: report ID 0 + "read status". Changes no settings.
+//! - Reply: `[0]` = 0xB0, `[2]` = battery, `[3]` = status (0x00 headset off, 0x01/0x02 charging).
+//! - `0x220A` (older firmware) reports the battery in steps 0–4 (0/25/50/75/100 %);
+//!   `0x22A7` / `0x2298`, from the January 2026 firmware on, report a percentage.
 
 use super::{exchange, Driver, Found, ANY};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 
-/// Pili 0–4 kademeyle bildiren ürün kimliği; diğerleri yüzde bildirir.
+/// Product ID that reports the battery in steps 0–4; the others report a percentage.
 const PID_STEPPED: u16 = 0x220A;
 
 pub const DRIVER: Driver = Driver {
@@ -30,7 +30,7 @@ fn read(dev: &HidDevice, pid: u16) -> Option<Found> {
         .map(Found::from)
 }
 
-/// Durum cevabını çözer; kulaklık kapalıysa `None`.
+/// Decodes the status reply; `None` when the headset is off.
 fn parse(r: &[u8], stepped: bool) -> Option<Battery> {
     let (level, status) = (r[2], r[3]);
     if status == STATUS_OFF {

@@ -1,11 +1,11 @@
-//! Waizowl OGM Pro V2 fare ("OGM 8K" Nordic alıcısı).
+//! Waizowl OGM Pro V2 mouse ("OGM 8K" Nordic receiver).
 //!
-//! Protokol Waizowl Driver Software trafiğinden çıkarıldı: docs/waizowl-ogm-protocol.md.
-//! - Çerçeve 64 bayt: `[komut, 00, 81, 01, veri…, sağlama]`; 64 baytın toplamı mod 256 = 0xA1.
-//! - `0x01` bağlantı durumu: cevapta `[4]` = 0x0A bağlı, 0x02 fare kapalı/uykuda.
-//! - `0x41` pil: cevapta `[5]` = 1 şarjda, `[6]` = yüzde.
+//! Protocol worked out from the Waizowl Driver Software traffic: docs/waizowl-ogm-protocol.md.
+//! - 64-byte frame: `[command, 00, 81, 01, data…, checksum]`; the 64 bytes sum to 0xA1 (mod 256).
+//! - `0x01` link state: reply `[4]` = 0x0A connected, 0x02 mouse off / asleep.
+//! - `0x41` battery: reply `[5]` = 1 charging, `[6]` = percent.
 //!
-//! İkisi de Waizowl'un her bağlanmada ayar değiştirmeden gönderdiği salt-okuma istekleridir.
+//! Both are read-only requests the Waizowl software sends on every connection.
 
 use super::{exchange, Driver, Found, ANY};
 use crate::model::{Battery, Kind};
@@ -27,7 +27,7 @@ const CMD_BATTERY: u8 = 0x41;
 const STATE_CONNECTED: u8 = 0x0A;
 
 fn read(dev: &HidDevice, _pid: u16) -> Option<Found> {
-    // Fare uykudayken alıcı son pil değerini yine döndürebilir; önce bağlantıya bakılır.
+    // The receiver may still return the last level while the mouse sleeps; check the link first.
     let state = exchange(dev, &request(CMD_STATE), |r| frame(r, CMD_STATE).map(|f| f[4]))?;
     if state != STATE_CONNECTED {
         return None;
@@ -39,7 +39,7 @@ fn sum(bytes: &[u8]) -> u8 {
     bytes.iter().fold(0, |a, &b| a.wrapping_add(b))
 }
 
-/// Rapor no (0) + 64 baytlık istek çerçevesi.
+/// Report ID (0) + 64-byte request frame.
 fn request(cmd: u8) -> [u8; FRAME + 1] {
     let mut out = [0u8; FRAME + 1];
     let f = &mut out[1..];
@@ -48,8 +48,8 @@ fn request(cmd: u8) -> [u8; FRAME + 1] {
     out
 }
 
-/// Rapor, `cmd` komutunun sağlaması tutan bir cevabıysa çerçeveyi döndürür.
-/// Rapor numarası hidapi tarafından atılmamışsa (65 bayt) burada atılır.
+/// Returns the frame if the report is a reply to `cmd` with a valid checksum.
+/// Strips the report ID if hidapi left it in (65 bytes).
 fn frame(r: &[u8], cmd: u8) -> Option<&[u8]> {
     let f = if r.len() == FRAME + 1 { &r[1..] } else { r };
     (f.len() == FRAME && f[0] == cmd && sum(f) == CHECKSUM).then_some(f)
@@ -63,7 +63,7 @@ fn battery(f: &[u8]) -> Option<Battery> {
 mod tests {
     use super::*;
 
-    /// Kayıttaki bir çerçeve: anlamlı baş kısım + sıfırlar + sağlama (docs/waizowl-ogm-protocol.md).
+    /// A captured frame: meaningful head + zeros + checksum (docs/waizowl-ogm-protocol.md).
     fn captured(head: &[u8], checksum: u8) -> Vec<u8> {
         let mut f = vec![0u8; FRAME];
         f[..head.len()].copy_from_slice(head);
@@ -119,9 +119,9 @@ mod tests {
     #[test]
     fn rejects_corrupt_or_foreign_frames() {
         let mut f = battery_63();
-        f[6] = 0x40; // sağlama artık tutmaz
+        f[6] = 0x40; // checksum no longer matches
         assert!(frame(&f, CMD_BATTERY).is_none());
-        assert!(frame(&state_on(), CMD_BATTERY).is_none(), "başka komutun cevabı");
+        assert!(frame(&state_on(), CMD_BATTERY).is_none(), "reply to another command");
         assert!(frame(&[], CMD_STATE).is_none());
     }
 }
