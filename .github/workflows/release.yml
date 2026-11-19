@@ -15,7 +15,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Sürüm numarası
         id: ver
@@ -41,7 +41,7 @@ jobs:
           & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" installer\chargestrip.iss
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/*.exe
@@ -50,7 +50,7 @@ jobs:
     runs-on: macos-latest # Apple Silicon (arm64)
     timeout-minutes: 30 # bir adım takılırsa sürüm saatlerce beklemesin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Test
         run: cargo test --locked
@@ -79,7 +79,7 @@ jobs:
           EOF
           ditto -c -k --keepParent Chargestrip.app "Chargestrip-macOS-$V.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: Chargestrip-macOS-*.zip
@@ -90,12 +90,12 @@ jobs:
     if: ${{ always() && github.ref_type == 'tag' && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: out
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: out/*
           generate_release_notes: true
