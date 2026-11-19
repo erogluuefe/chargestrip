@@ -3,6 +3,8 @@ name = "chargestrip"
 version = "0.2.6"
 edition = "2021"
 description = "Kablosuz cihazların pil durumunu Windows taskbar'ında / macOS menü çubuğunda gösterir"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/erogluuefe/chargestrip"
 
 [dependencies]
 # Windows'ta saf Rust arka uç (C derlemesi yok); macOS'ta IOKit arka ucu otomatik seçilir.

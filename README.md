@@ -122,3 +122,11 @@ tools/hidspy/        protokol çözmek için HID trafik dinleyicisi
    Kayıttan alınan ham çerçevelerle birim testleri ekle.
 4. **Kaydet.** `src/devices/mod.rs` içinde `mod <marka_model>;` ve `DRIVERS` listesine
    `<marka_model>::DRIVER` ekle. Arayüz başka bir değişiklik gerektirmez.
+
+## Lisans
+
+Copyright (C) 2026 erogluuefe
+
+[GNU GPL v3](LICENSE) veya sonraki bir sürümü. Herkes kullanabilir, inceleyebilir, değiştirebilir ve
+dağıtabilir; değiştirilmiş hâlini dağıtan, kaynak kodunu da aynı lisansla açmak zorundadır.
+Yazılım hiçbir garanti olmadan sunulur.
