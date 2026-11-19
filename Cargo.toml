@@ -25,9 +25,8 @@ windows-sys = { version = "0.61", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
-# Koşulsuz: build.rs her makinede derlenir; manifesti yalnızca Windows hedefinde gömer.
+# Koşulsuz: build.rs her makinede derlenir; kaynakları yalnızca Windows hedefinde gömer.
 [build-dependencies]
-embed-manifest = "1.4"
 winresource = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
