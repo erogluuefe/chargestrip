@@ -7,7 +7,7 @@
 //!
 //! İkisi de Waizowl'un her bağlanmada ayar değiştirmeden gönderdiği salt-okuma istekleridir.
 
-use super::{exchange, Driver};
+use super::{exchange, Driver, Found, ANY};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 
@@ -16,6 +16,7 @@ pub const DRIVER: Driver = Driver {
     vid: 0x1915,
     pids: &[0x0728],
     usage_page: 0xFF0A,
+    usage: ANY,
     read,
 };
 
@@ -25,13 +26,13 @@ const CMD_STATE: u8 = 0x01;
 const CMD_BATTERY: u8 = 0x41;
 const STATE_CONNECTED: u8 = 0x0A;
 
-fn read(dev: &HidDevice, _pid: u16) -> Option<Battery> {
+fn read(dev: &HidDevice, _pid: u16) -> Option<Found> {
     // Fare uykudayken alıcı son pil değerini yine döndürebilir; önce bağlantıya bakılır.
     let state = exchange(dev, &request(CMD_STATE), |r| frame(r, CMD_STATE).map(|f| f[4]))?;
     if state != STATE_CONNECTED {
         return None;
     }
-    exchange(dev, &request(CMD_BATTERY), |r| frame(r, CMD_BATTERY).map(battery))?
+    exchange(dev, &request(CMD_BATTERY), |r| frame(r, CMD_BATTERY).map(battery))?.map(Found::from)
 }
 
 fn sum(bytes: &[u8]) -> u8 {

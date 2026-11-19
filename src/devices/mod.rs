@@ -16,25 +16,46 @@
 
 mod arctis_nova7;
 mod bluetooth;
+mod fractal_scape;
+mod logitech;
+mod razer;
 mod waizowl_ogm;
 
 use crate::model::{Battery, Kind};
 use hidapi::{HidApi, HidDevice};
 use std::time::{Duration, Instant};
 
-/// Bir cihaz modelinin tanımı.
+/// Bir cihaz modelinin (ya da aynı protokolü konuşan bir ailenin) tanımı.
 pub struct Driver {
-    /// Gösterilecek ikon.
+    /// Gösterilecek ikon (sürücü cihazdan öğrenmediyse).
     pub kind: Kind,
     /// USB alıcısının üretici kimliği.
     pub vid: u16,
     /// Desteklenen ürün kimlikleri (aynı protokolü konuşan alıcı/kablo varyantları).
     pub pids: &'static [u16],
-    /// Pil bilgisinin okunduğu HID arayüzünün usage page değeri (genelde 0xFFxx, üreticiye özel).
+    /// Pil bilgisinin okunduğu HID arayüzünün usage page / usage değeri; `ANY` ise uyan tüm
+    /// arayüzler sırayla denenir ve ilk geçerli okuma alınır.
     pub usage_page: u16,
+    pub usage: u16,
     /// Açılmış arayüzden pili okur. `pid` aynı sürücüdeki varyantları ayırmak içindir.
     /// `None`: cihaz kapalı/uykuda ya da geçerli cevap gelmedi.
-    pub read: fn(dev: &HidDevice, pid: u16) -> Option<Battery>,
+    pub read: fn(dev: &HidDevice, pid: u16) -> Option<Found>,
+}
+
+/// `usage_page` / `usage` için: herhangi biri.
+pub const ANY: u16 = 0;
+
+/// Bir sürücünün başarılı okuması.
+pub struct Found {
+    pub battery: Battery,
+    /// Tür cihazdan öğrenildiyse (ör. aynı alıcıya klavye de fare de bağlanabiliyorsa).
+    pub kind: Option<Kind>,
+}
+
+impl From<Battery> for Found {
+    fn from(battery: Battery) -> Self {
+        Found { battery, kind: None }
+    }
 }
 
 /// Bir cihazın bir turdaki okuması.
@@ -48,7 +69,14 @@ pub struct Reading {
 }
 
 /// Desteklenen USB alıcılı cihazlar; arayüzde bu sırayla, Bluetooth cihazlardan önce gösterilir.
-pub const DRIVERS: &[Driver] = &[arctis_nova7::DRIVER, waizowl_ogm::DRIVER];
+pub const DRIVERS: &[Driver] = &[
+    arctis_nova7::DRIVER,
+    fractal_scape::DRIVER,
+    waizowl_ogm::DRIVER,
+    razer::MICE,
+    razer::KEYBOARDS,
+    logitech::RECEIVERS,
+];
 
 /// Bir cevabın beklenebileceği en uzun süre.
 const TIMEOUT: Duration = Duration::from_millis(1000);
@@ -66,31 +94,47 @@ fn poll_receivers(api: &mut HidApi) -> Vec<Reading> {
     if api.refresh_devices().is_err() {
         return Vec::new();
     }
+    let api = &*api;
     DRIVERS
         .iter()
         .enumerate()
         .filter_map(|(i, d)| {
-            let info = api.device_list().find(|info| {
+            let mut candidates = api.device_list().filter(|info| {
                 info.vendor_id() == d.vid
                     && d.pids.contains(&info.product_id())
-                    && info.usage_page() == d.usage_page
-            })?;
-            let battery = info.open_device(api).ok().and_then(|dev| (d.read)(&dev, info.product_id()));
-            Some(Reading { key: format!("usb:{i}"), kind: d.kind, battery })
+                    && (d.usage_page == ANY || info.usage_page() == d.usage_page)
+                    && (d.usage == ANY || info.usage() == d.usage)
+            });
+            let first = candidates.next()?; // alıcı takılı değil
+            let found = std::iter::once(first).chain(candidates).find_map(|info| {
+                let dev = info.open_device(api).ok()?;
+                (d.read)(&dev, info.product_id())
+            });
+            Some(Reading {
+                key: format!("usb:{i}"),
+                kind: found.as_ref().and_then(|f| f.kind).unwrap_or(d.kind),
+                battery: found.map(|f| f.battery),
+            })
         })
         .collect()
 }
 
 /// İsteği gönderir ve `accept` bir değer döndürene kadar gelen raporları okur.
 /// Arada cihazın kendiliğinden yolladığı bildirimler `accept`'in `None` döndürmesiyle atlanır.
-/// Zaman aşımında veya HID hatasında `None`.
-pub(crate) fn exchange<T>(
+/// Zaman aşımında (`TIMEOUT`) veya HID hatasında `None`.
+pub(crate) fn exchange<T>(dev: &HidDevice, request: &[u8], accept: impl FnMut(&[u8]) -> Option<T>) -> Option<T> {
+    exchange_within(dev, request, TIMEOUT, accept)
+}
+
+/// [`exchange`], verilen en uzun bekleme süresiyle.
+pub(crate) fn exchange_within<T>(
     dev: &HidDevice,
     request: &[u8],
+    timeout: Duration,
     mut accept: impl FnMut(&[u8]) -> Option<T>,
 ) -> Option<T> {
     dev.write(request).ok()?;
-    let deadline = Instant::now() + TIMEOUT;
+    let deadline = Instant::now() + timeout;
     let mut buf = [0u8; 128];
     loop {
         let left = deadline.checked_duration_since(Instant::now())?;

@@ -30,7 +30,7 @@ Güncelleme: GitHub'daki son sürüm günde bir kez kontrol edilir; daha yenisi 
 sistemle gelen `curl` kullanılır, ek kütüphane yok. Uygulamanın internete tek çıkışı budur
 (`api.github.com` ve indirilen Release dosyası); hiçbir veri gönderilmez.
 
-Hafiflik: tek dosya ~320 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
+Hafiflik: tek dosya ~330 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). Arka planda servis yok.
 
 ## Desteklenen cihazlar
 
@@ -38,7 +38,14 @@ Hafiflik: tek dosya ~320 KB, ~1,5 MB özel bellek, 7 bağımlılık (Windows). A
 |---|---|---|
 | SteelSeries Arctis Nova 7P | `1038:220A`, `22A7`, `2298` | Durum isteği `B0`; Ocak 2026 öncesi yazılımda pil 0–4 kademe |
 | Waizowl OGM Pro V2 | `1915:0728` ("OGM 8K") | [docs/fare-protokolu.md](docs/fare-protokolu.md) |
+| Fractal Design Scape | `36BC:0001` alıcı, `36BC:2001` kablo | "Cihaz durumunu ver" isteği `21` (alıcı, sonra kulaklık) |
+| Razer kablosuz fareler ve klavyeler (ör. DeathAdder V3 Pro: `1532:00B6` kablo, `00B7` alıcı) | `1532:…` (ürün kimliği listesi) | 90 baytlık feature raporu, sınıf `07`: pil `80`, şarj `84` |
+| Logitech fare ve klavyeler (ör. G915 X) LIGHTSPEED / Unifying / Bolt alıcısıyla | `046D:C539`, `C547`, `C548` … | HID++ 2.0: birleşik pil (`1004`) ya da pil durumu (`1000`) |
 | **Bluetooth cihazlar** (kulaklık, klavye, fare, kol…) | — | İşletim sisteminin bildiği pil seviyesi: Windows'ta aygıt özelliği, macOS'ta `system_profiler` (5 dakikada bir) |
+
+Fractal, Razer ve Logitech sürücüleri, gerçek cihazlarla denenmiş açık protokollere dayanır; bu
+uygulamada kendi donanımımızla henüz denenmedi. Çalışmayan bir cihaz için `probe` çıktısıyla bir
+issue açabilirsin (aşağıda "Yeni cihaz ekleme", 1. adım).
 
 Bluetooth cihazlar yalnızca bağlıyken ve işletim sistemi pil seviyesini biliyorsa görünür (Windows
 Ayarlar → Bluetooth'ta ya da macOS Bluetooth menüsünde yüzde görünüyorsa). Bluetooth şarj durumu
@@ -86,7 +93,10 @@ src/
   poller.rs          arka plan sorgu iş parçacığı, son bilinen değerler
   devices/
     mod.rs           Reading, Driver tanımı, DRIVERS listesi, poll(), exchange() yardımcısı
-    arctis_nova7.rs  USB alıcılı her cihaz modeli = bir dosya
+    arctis_nova7.rs  USB alıcılı her cihaz modeli / ailesi = bir dosya
+    fractal_scape.rs
+    logitech.rs
+    razer.rs
     waizowl_ogm.rs
     bluetooth/       işletim sisteminin bildiği Bluetooth pil seviyeleri (windows.rs, macos.rs)
   win/
@@ -118,12 +128,14 @@ tools/hidspy/        protokol çözmek için HID trafik dinleyicisi
        kind: Kind::Mouse,          // yeni bir tür gerekiyorsa model.rs'e ekle (+ ikon eşlemeleri)
        vid: 0x1234,
        pids: &[0x5678],
-       usage_page: 0xFF00,
+       usage_page: 0xFF00,         // ANY: uyan tüm arayüzler sırayla denenir
+       usage: ANY,
        read,
    };
 
-   fn read(dev: &HidDevice, _pid: u16) -> Option<Battery> {
-       exchange(dev, &REQUEST, |report| /* bu isteğin cevabıysa çöz, değilse None */)
+   fn read(dev: &HidDevice, _pid: u16) -> Option<Found> {
+       exchange(dev, &REQUEST, |report| /* bu isteğin cevabıysa çöz, değilse None */)?
+           .map(Found::from)          // Battery → Found (tür cihazdan öğrenildiyse Found { kind, .. })
    }
    ```
    Kayıttan alınan ham çerçevelerle birim testleri ekle.

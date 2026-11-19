@@ -6,7 +6,7 @@
 //! - `0x220A` (eski yazılım) pili 0–4 kademe bildirir (%0/25/50/75/100);
 //!   Ocak 2026 yazılımıyla gelen `0x22A7` / `0x2298` doğrudan yüzde bildirir.
 
-use super::{exchange, Driver};
+use super::{exchange, Driver, Found, ANY};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 
@@ -18,14 +18,16 @@ pub const DRIVER: Driver = Driver {
     vid: 0x1038,
     pids: &[PID_STEPPED, 0x22A7, 0x2298],
     usage_page: 0xFFC0,
+    usage: ANY,
     read,
 };
 
 const REQUEST: [u8; 2] = [0x00, 0xB0];
 const STATUS_OFF: u8 = 0x00;
 
-fn read(dev: &HidDevice, pid: u16) -> Option<Battery> {
+fn read(dev: &HidDevice, pid: u16) -> Option<Found> {
     exchange(dev, &REQUEST, |r| (r.len() >= 4 && r[0] == REQUEST[1]).then(|| parse(r, pid == PID_STEPPED)))?
+        .map(Found::from)
 }
 
 /// Durum cevabını çözer; kulaklık kapalıysa `None`.
