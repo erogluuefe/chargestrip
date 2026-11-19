@@ -6,11 +6,13 @@
 //! - `poller`:  arka planda periyodik sorgu
 //! - `model`:   platformdan bağımsız gösterim kararları
 //! - `update`:  yeni sürüm denetimi, indirme ve kurma
+//! - `i18n`:    arayüz metinleri (sistem diline göre Türkçe / İngilizce)
 //! - `win` / `mac`: platforma özgü arayüz
 
 #![windows_subsystem = "windows"]
 
 mod devices;
+mod i18n;
 mod model;
 mod poller;
 mod update;

@@ -2,6 +2,7 @@
 //! Menü çubuğu öğesi NSApplication olay döngüsü ister; bunu `tao` sağlar. Dock'ta simge çıkmaz.
 //! Not: CI'da derleniyor; macOS'ta ilk kez 2026-11-19'da (alıcısız) çalıştırıldı.
 
+use crate::i18n::{fill, t};
 use crate::model::{Kind, Shown, Tone};
 use crate::poller;
 use crate::update::{self, Update};
@@ -67,7 +68,7 @@ impl Ui {
         if self.update.is_some() {
             return;
         }
-        let item = MenuItem::new(format!("Güncelle ({})", u.version), true, None);
+        let item = MenuItem::new(fill(t().update_to, &u.version), true, None);
         let _ = self.menu.prepend_items(&[&item, &PredefinedMenuItem::separator()]);
         self.update = Some((u, item));
     }
@@ -89,10 +90,10 @@ pub fn run() {
         match event {
             // Menü çubuğu öğesi ancak olay döngüsü başladıktan sonra oluşturulabilir.
             Event::NewEvents(StartCause::Init) => {
-                let refresh_item = MenuItem::new("Yenile", true, None);
-                let autostart = CheckMenuItem::new("Açılışta başlat", true, autostart::is_enabled(), None);
-                let check = MenuItem::new("Güncellemeleri denetle", true, None);
-                let quit = MenuItem::new("Çıkış", true, None);
+                let refresh_item = MenuItem::new(t().refresh, true, None);
+                let autostart = CheckMenuItem::new(t().autostart, true, autostart::is_enabled(), None);
+                let check = MenuItem::new(t().check_updates, true, None);
+                let quit = MenuItem::new(t().quit, true, None);
                 // Yalnızca bilgi: soluk, tıklanmaz.
                 let version = MenuItem::new(format!("Chargestrip {}", update::CURRENT), false, None);
                 let menu = Menu::new();
@@ -143,11 +144,11 @@ pub fn run() {
                     // Elle denetim; sonuç menüde yazar, yeni sürüm varsa en üstte "Güncelle" çıkar.
                     match update::check() {
                         Ok(Some(u)) => {
-                            ui.check.set_text(format!("Yeni sürüm var: {} (en üstte)", u.version));
+                            ui.check.set_text(fill(t().label_new_version, &u.version));
                             ui.offer(u);
                         }
-                        Ok(None) => ui.check.set_text(format!("Güncel ({}) ✓ — tekrar denetle", update::CURRENT)),
-                        Err(()) => ui.check.set_text("Denetlenemedi — tekrar dene"),
+                        Ok(None) => ui.check.set_text(fill(t().label_up_to_date, "")),
+                        Err(()) => ui.check.set_text(t().label_check_failed),
                     }
                 } else if let Some((u, item)) = &ui.update {
                     // İndirme birkaç saniye sürer; kurulum betiği bu süreç çıkınca paketi değiştirip

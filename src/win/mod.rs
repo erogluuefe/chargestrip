@@ -9,6 +9,7 @@
 mod autostart;
 mod strip;
 
+use crate::i18n::{fill, t};
 use crate::model::Shown;
 use crate::poller;
 use crate::update::{self, Update};
@@ -83,21 +84,16 @@ pub fn run() {
                 // Elle denetim: sonuç bir pencereyle söylenir; yeni sürüm varsa hemen kurmak sorulur.
                 Some(Command::CheckUpdate) => match update::check() {
                     Ok(Some(u)) => {
-                        let question = format!(
-                            "Chargestrip {} yayımlandı (kurulu: {}).\nŞimdi güncellensin mi?",
-                            u.version,
-                            update::CURRENT
-                        );
-                        if s.message(&question, true) && install(&u) {
+                        if s.message(&fill(t().ask_update, &u.version), true) && install(&u) {
                             return;
                         }
                         pending = Some(u);
                     }
                     Ok(None) => {
-                        s.message(&format!("Chargestrip güncel ({}).", update::CURRENT), false);
+                        s.message(&fill(t().up_to_date, ""), false);
                     }
                     Err(()) => {
-                        s.message("Güncelleme denetlenemedi. İnternet bağlantısını kontrol edip tekrar dene.", false);
+                        s.message(t().check_failed, false);
                     }
                 },
                 None => {}

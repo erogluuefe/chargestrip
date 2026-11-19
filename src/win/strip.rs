@@ -272,26 +272,27 @@ impl Strip {
         }
     }
 
-    /// Sağ tık menüsünü imlecin yanında açar ve seçilen komutu döndürür. `update`: yayımlanmış
-    /// yeni sürüm varsa numarası; menünün başına "Güncelle" eklenir.
+    /// Menüyü imlecin yanında açar ve seçilen komutu döndürür. `update`: yayımlanmış yeni sürüm
+    /// varsa numarası; menünün başına "Güncelle" eklenir.
     pub fn menu(&self, autostart_on: bool, update: Option<&str>) -> Option<Command> {
         unsafe {
             let m = CreatePopupMenu();
+            let t = crate::i18n::t();
             let check = if autostart_on { MF_CHECKED } else { MF_UNCHECKED };
             if let Some(version) = update {
-                let label = wide(&format!("Güncelle ({version})"));
+                let label = wide(&crate::i18n::fill(t.update_to, version));
                 AppendMenuW(m, MF_STRING, Command::Update as usize, label.as_ptr());
                 AppendMenuW(m, MF_SEPARATOR, 0, null());
             }
-            AppendMenuW(m, MF_STRING, Command::Refresh as usize, wide("Yenile").as_ptr());
-            AppendMenuW(m, MF_STRING | check, Command::ToggleAutostart as usize, wide("Açılışta başlat").as_ptr());
+            AppendMenuW(m, MF_STRING, Command::Refresh as usize, wide(t.refresh).as_ptr());
+            AppendMenuW(m, MF_STRING | check, Command::ToggleAutostart as usize, wide(t.autostart).as_ptr());
             AppendMenuW(m, MF_SEPARATOR, 0, null());
             if update.is_none() {
-                AppendMenuW(m, MF_STRING, Command::CheckUpdate as usize, wide("Güncellemeleri denetle").as_ptr());
+                AppendMenuW(m, MF_STRING, Command::CheckUpdate as usize, wide(t.check_updates).as_ptr());
             }
             let version = wide(&format!("Chargestrip {}", crate::update::CURRENT));
             AppendMenuW(m, MF_STRING | MF_GRAYED, 0, version.as_ptr()); // yalnızca bilgi
-            AppendMenuW(m, MF_STRING, Command::Quit as usize, wide("Çıkış").as_ptr());
+            AppendMenuW(m, MF_STRING, Command::Quit as usize, wide(t.quit).as_ptr());
             let mut pt = POINT { x: 0, y: 0 };
             GetCursorPos(&mut pt);
             // Menünün dışına tıklanınca kapanması için sahibinin önde olması gerekir.
