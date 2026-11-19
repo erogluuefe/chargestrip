@@ -41,8 +41,10 @@ Windows'ta Rust (MSVC) ve Visual Studio C++ Build Tools gerekir.
 
 Kurulum ([installer/chargestrip.iss](installer/chargestrip.iss), Inno Setup) yönetici izni istemez,
 `%LOCALAPPDATA%\Programs\Chargestrip` altına kurar, Başlat menüsüne kısayol ve isteğe bağlı açılışta
-başlatma ekler; "Uygulamalar" listesinden kaldırılabilir. Dosyalar imzasızdır: Windows ilk açılışta
-"Ek bilgi → Yine de çalıştır", macOS "sağ tık → Aç" ister.
+başlatma ekler; "Uygulamalar" listesinden kaldırılabilir. Dosyalar Apple/Microsoft sertifikasıyla
+imzalı değildir: Windows ilk açılışta "Ek bilgi → Yine de çalıştır" ister. macOS paketi yalnızca
+ad-hoc imzalıdır; ilk açılışta engellenince Sistem Ayarları → Gizlilik ve Güvenlik → "Yine de Aç"
+gerekir (ya da Terminal'de `xattr -dr com.apple.quarantine /Applications/Chargestrip.app`).
 
 Yerelde kurulum dosyası: `cargo build --release` ardından
 `ISCC.exe /DAppVersion=0.3.0 installer\chargestrip.iss` → `dist\`.

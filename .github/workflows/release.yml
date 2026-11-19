@@ -77,6 +77,11 @@ jobs:
             <key>LSUIElement</key><true/>
           </dict></plist>
           EOF
+          # Ad-hoc imza (Apple hesabı gerektirmez): imzasız paketi macOS "hasarlı" sayar ve
+          # açtırmaz; ad-hoc imzalıyı "Yine de aç" ile açtırır. Info.plist de imzaya bağlanır.
+          codesign --force --deep --sign - Chargestrip.app
+          codesign --verify --verbose Chargestrip.app
+
           # Disk kalıbı: açılınca uygulama ve yanında "Uygulamalar" kısayolu; sürükleyip bırakmak yeter.
           mkdir dmg
           cp -R Chargestrip.app dmg/
