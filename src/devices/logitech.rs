@@ -13,7 +13,7 @@
 //! Up to six devices can pair with a receiver (index 1–6); the first one with a readable battery
 //! is shown. The software ID tells Logitech G HUB's replies apart from ours.
 
-use super::{exchange_within, Driver, Found};
+use super::{exchange_within, Driver, Found, Interface};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 use std::time::Duration;
@@ -27,8 +27,7 @@ pub const RECEIVERS: Driver = Driver {
         0xC52B, 0xC532, // Unifying
         0xC548, // Bolt
     ],
-    usage_page: 0xFF00,
-    usage: 0x0002, // HID++ long report interface
+    interface: Interface::Usage(0xFF00, 0x0002), // HID++ long report interface
     read,
 };
 
@@ -54,7 +53,7 @@ fn read(dev: &HidDevice, _pid: u16) -> Option<Found> {
         let names = feature(dev, index, DEVICE_NAME);
         let kind = names.and_then(|f| call(dev, index, f, 2, &[])).and_then(|p| kind(*p.first()?));
         let name = names.and_then(|f| device_name(dev, index, f));
-        Some(Found { battery, kind, name })
+        Some(Found { battery: Some(battery), kind, name })
     })
 }
 

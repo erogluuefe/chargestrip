@@ -39,15 +39,17 @@ pub fn spawn(notify: impl Fn(Vec<Shown>) + Send + 'static) -> Sender<()> {
 }
 
 /// Turns readings into what to show; successful readings are stored in `last` by device key so
-/// the last value can be shown while the device sleeps.
+/// the last value can be shown while the device sleeps. A tentative reading without any value
+/// (an unrecognized receiver) is left out.
 fn snapshot(readings: &[Reading], last: &mut HashMap<String, u8>) -> Vec<Shown> {
     readings
         .iter()
-        .map(|r| {
+        .filter_map(|r| {
             if let Some(b) = r.battery {
                 last.insert(r.key.clone(), b.percent);
             }
-            present(r.kind, &r.name, r.battery, last.get(&r.key).copied())
+            let previous = last.get(&r.key).copied();
+            (!r.tentative || previous.is_some()).then(|| present(r.kind, &r.name, r.battery, previous))
         })
         .collect()
 }
@@ -59,7 +61,7 @@ mod tests {
 
     fn r(key: &str, percent: Option<u8>) -> Reading {
         let battery = percent.map(|percent| Battery { percent, charging: false });
-        Reading { key: key.into(), name: key.into(), kind: Kind::Mouse, battery }
+        Reading { key: key.into(), name: key.into(), kind: Kind::Mouse, battery, tentative: false }
     }
 
     #[test]
@@ -69,6 +71,15 @@ mod tests {
         let s = snapshot(&[r("usb:0", Some(69)), r("usb:1", None)], &mut last);
         assert_eq!((s[0].text.as_str(), s[0].tone), ("69%", Tone::Normal));
         assert_eq!((s[1].text.as_str(), s[1].tone), ("40%", Tone::Inactive));
+    }
+
+    #[test]
+    fn unrecognized_receivers_stay_hidden_until_they_answer() {
+        let mut last = HashMap::new();
+        let tried = Reading { tentative: true, ..r("usb:9", None) };
+        assert!(snapshot(std::slice::from_ref(&tried), &mut last).is_empty());
+        snapshot(&[Reading { tentative: false, ..r("usb:9", Some(50)) }], &mut last);
+        assert_eq!(snapshot(&[tried], &mut last)[0].text, "50%"); // known now: shown asleep
     }
 
     #[test]

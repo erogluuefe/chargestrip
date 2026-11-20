@@ -10,7 +10,7 @@
 //!   `[23]` = 1 on the cable (charging).
 //! - On its charging stand the headset unlinks from the receiver and shows as off.
 
-use super::{exchange, Driver, Found};
+use super::{exchange, Driver, Found, Interface};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 
@@ -21,8 +21,7 @@ pub const DRIVER: Driver = Driver {
     kind: Kind::Headset,
     vid: 0x36BC,
     pids: &[PID_DONGLE, 0x2001],
-    usage_page: 0xFF00,
-    usage: 0x0001,
+    interface: Interface::Usage(0xFF00, 0x0001),
     read,
 };
 

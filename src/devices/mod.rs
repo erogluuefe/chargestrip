@@ -16,9 +16,11 @@
 
 mod arctis_nova7;
 mod bluetooth;
+mod compx;
 mod fractal_scape;
 mod logitech;
 mod razer;
+mod sonix;
 mod waizowl_ogm;
 
 use crate::model::{Battery, Kind};
@@ -33,23 +35,49 @@ pub struct Driver {
     pub kind: Kind,
     /// Vendor ID of the USB receiver.
     pub vid: u16,
-    /// Supported product IDs (receiver/cable variants speaking the same protocol).
+    /// Supported product IDs (receiver/cable variants speaking the same protocol). Empty: every
+    /// product of `vid` is tried; one that never answers is not shown (see [`Reading::tentative`]).
     pub pids: &'static [u16],
-    /// Usage page / usage of the HID interface the battery is read from; with `ANY`, every matching
-    /// interface is tried in turn and the first valid reading wins.
-    pub usage_page: u16,
-    pub usage: u16,
+    /// Which HID interface(s) of the receiver to try; the first valid reading wins.
+    pub interface: Interface,
     /// Reads the battery from the opened interface. `pid` tells variants of one driver apart.
     /// `None`: device off or asleep, or no valid reply.
     pub read: fn(dev: &HidDevice, pid: u16) -> Option<Found>,
 }
 
-/// For `usage_page` / `usage`: any value.
-pub const ANY: u16 = 0;
+/// Which HID interfaces of a receiver a driver talks to.
+#[derive(Clone, Copy)]
+pub enum Interface {
+    /// Every interface.
+    Any,
+    /// Every interface on this usage page.
+    Page(u16),
+    /// The interface with this usage page and usage.
+    Usage(u16, u16),
+    /// Every vendor-specific interface (usage page ≥ 0xFF00), this usage page and usage first.
+    Vendor(u16, u16),
+}
 
-/// A driver's successful reading.
+impl Interface {
+    fn matches(self, page: u16, usage: u16) -> bool {
+        match self {
+            Interface::Any => true,
+            Interface::Page(p) => page == p,
+            Interface::Usage(p, u) => page == p && usage == u,
+            Interface::Vendor(..) => page >= 0xFF00,
+        }
+    }
+
+    /// Sort key: the preferred interface first.
+    fn rank(self, page: u16, usage: u16) -> bool {
+        !matches!(self, Interface::Vendor(p, u) if (p, u) == (page, usage))
+    }
+}
+
+/// A driver's answer: the device is one of its own.
 pub struct Found {
-    pub battery: Battery,
+    /// `None`: the receiver answered, but the device is off, asleep or out of range.
+    pub battery: Option<Battery>,
     /// Kind learned from the device (e.g. when a receiver can pair with a keyboard or a mouse).
     pub kind: Option<Kind>,
     /// Name learned from the device.
@@ -58,7 +86,7 @@ pub struct Found {
 
 impl From<Battery> for Found {
     fn from(battery: Battery) -> Self {
-        Found { battery, kind: None, name: None }
+        Found { battery: Some(battery), kind: None, name: None }
     }
 }
 
@@ -72,6 +100,9 @@ pub struct Reading {
     pub kind: Kind,
     /// `None`: receiver plugged in, but the device is off or asleep, or gave no valid reply.
     pub battery: Option<Battery>,
+    /// The receiver was only tried (its driver covers every product of a vendor) and gave no valid
+    /// reply, so it may not be a supported device at all. Shown only if it answered before.
+    pub tentative: bool,
 }
 
 /// Supported USB receiver devices; shown in this order, before Bluetooth devices.
@@ -82,6 +113,13 @@ pub const DRIVERS: &[Driver] = &[
     razer::MICE,
     razer::KEYBOARDS,
     logitech::RECEIVERS,
+    compx::ATK,
+    compx::COMPX,
+    compx::PULSAR,
+    compx::HITSCAN,
+    compx::G_WOLVES,
+    sonix::AJAZZ_PRO,
+    sonix::AJAZZ_MAX,
 ];
 
 /// Longest wait for a reply.
@@ -106,24 +144,28 @@ fn poll_receivers(api: &mut HidApi) -> Vec<Reading> {
         .iter()
         .enumerate()
         .filter_map(|(i, d)| {
-            let mut candidates = api.device_list().filter(|info| {
-                info.vendor_id() == d.vid
-                    && d.pids.contains(&info.product_id())
-                    && (d.usage_page == ANY || info.usage_page() == d.usage_page)
-                    && (d.usage == ANY || info.usage() == d.usage)
-            });
-            let first = candidates.next()?; // receiver not plugged in
+            let mut candidates: Vec<_> = api
+                .device_list()
+                .filter(|info| {
+                    info.vendor_id() == d.vid
+                        && (d.pids.is_empty() || d.pids.contains(&info.product_id()))
+                        && d.interface.matches(info.usage_page(), info.usage())
+                })
+                .collect();
+            candidates.sort_by_key(|info| d.interface.rank(info.usage_page(), info.usage()));
+            let first = candidates.first()?; // receiver not plugged in
             let product = first.product_string().map(product_name).unwrap_or_default();
-            let found = std::iter::once(first).chain(candidates).find_map(|info| {
+            let found = candidates.iter().find_map(|info| {
                 let dev = info.open_device(api).ok()?;
                 (d.read)(&dev, info.product_id())
             });
+            let tentative = d.pids.is_empty() && found.is_none();
             let (kind, name, battery) = match found {
-                Some(f) => (f.kind.unwrap_or(d.kind), f.name, Some(f.battery)),
+                Some(f) => (f.kind.unwrap_or(d.kind), f.name, f.battery),
                 None => (d.kind, None, None),
             };
             let name = name.unwrap_or_else(|| if d.name.is_empty() { product } else { d.name.to_string() });
-            Some(Reading { key: format!("usb:{i}"), name, kind, battery })
+            Some(Reading { key: format!("usb:{i}"), name, kind, battery, tentative })
         })
         .collect()
 }
@@ -169,7 +211,8 @@ Readings:");
             Some(b) => format!("{}%{}", b.percent, if b.charging { " charging" } else { "" }),
             None => "no reply (off or asleep)".into(),
         };
-        let _ = writeln!(out, "  {} {:?} \"{}\": {state}", r.key, r.kind, r.name);
+        let tried = if r.tentative { " [tried, not recognized]" } else { "" };
+        let _ = writeln!(out, "  {} {:?} \"{}\": {state}{tried}", r.key, r.kind, r.name);
     }
     out
 }
@@ -178,7 +221,7 @@ Readings:");
 /// "Razer DeathAdder V3 Pro (Wireless)" → "Razer DeathAdder V3 Pro".
 fn product_name(name: &str) -> String {
     let mut name = name.trim();
-    for suffix in [" HyperSpeed Dongle", " Dongle", " Wireless Receiver", " Receiver", " (Wireless)", " (Wired)"] {
+    for suffix in [" HyperSpeed Dongle", " Dongle", " Wireless Receiver", " Receiver", " (Wireless)", " (Wired)", " 2.4G"] {
         name = name.strip_suffix(suffix).unwrap_or(name);
     }
     name.to_string()

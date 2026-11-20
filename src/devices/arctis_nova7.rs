@@ -6,7 +6,7 @@
 //! - `0x220A` (older firmware) reports the battery in steps 0–4 (0/25/50/75/100 %);
 //!   `0x22A7` / `0x2298`, from the January 2026 firmware on, report a percentage.
 
-use super::{exchange, Driver, Found, ANY};
+use super::{exchange, Driver, Found, Interface};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 
@@ -18,8 +18,7 @@ pub const DRIVER: Driver = Driver {
     kind: Kind::Headset,
     vid: 0x1038,
     pids: &[PID_STEPPED, 0x22A7, 0x2298],
-    usage_page: 0xFFC0,
-    usage: ANY,
+    interface: Interface::Page(0xFFC0),
     read,
 };
 

@@ -107,6 +107,8 @@ avoids this, because `curl` downloads are not quarantined.)
 | Fractal Design Scape | 2.4 GHz receiver or USB-C cable | `36BC:0001`, `2001` | 🧪 Documented protocol |
 | Razer wireless mice and keyboards (e.g. DeathAdder V3 Pro) | HyperSpeed receiver or cable | `1532:…` (~250 IDs) | 🧪 Documented protocol |
 | Logitech mice and keyboards (e.g. G915 X) | LIGHTSPEED, Unifying or Bolt receiver | `046D:C539`, `C547`, `C548`, … | 🧪 Documented protocol |
+| ATK / VXE (incl. NearLink), Kysona, Pulsar, Redragon, Hitscan, G-Wolves mice | Compx-based receiver | `373B:…`, `3554:…`, `3710:…`, `3770:…`, `33E4:…` | 🧪 Documented protocol |
+| AJAZZ AK820 Pro / MAX, AK980 V2, AULA F108 Pro (SONiX) | 2.4 GHz receiver (not cable or Bluetooth) | `0C45:FDFD`, `FEFE`, `05AC:024F` | 🧪 Documented protocol |
 | **Any Bluetooth device** with a battery level | Bluetooth | — | 🧪 Uses the OS value |
 
 ✅ tested with the real device. 🧪 implemented from a public, hardware-tested protocol; it has not
@@ -193,8 +195,7 @@ Supporting a new USB receiver usually takes one file and one line.
        kind: Kind::Mouse,
        vid: 0x1234,
        pids: &[0x5678],
-       usage_page: 0xFF00, // or ANY: try every matching interface
-       usage: ANY,
+       interface: Interface::Page(0xFF00), // or Usage(page, usage), Vendor(..), Any
        read,
    };
 
@@ -242,9 +243,11 @@ src/
   devices/
     mod.rs             Driver, Reading, DRIVERS, poll(), exchange()
     arctis_nova7.rs    one file per device model or family
+    compx.rs
     fractal_scape.rs
     logitech.rs
     razer.rs
+    sonix.rs
     waizowl_ogm.rs
     bluetooth/         OS battery levels (windows.rs, macos.rs)
   win/                 Win32 message loop, taskbar strip, autostart

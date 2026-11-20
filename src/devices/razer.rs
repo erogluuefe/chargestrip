@@ -12,16 +12,16 @@
 //!   another request means sending ours again.
 //!
 //! The battery is read from the mouse/keyboard interface; which interface answers depends on the
-//! model, so every matching interface is tried (`usage_page: ANY`).
+//! model, so every interface is tried (`Interface::Any`).
 
-use super::{Driver, Found, ANY};
+use super::{Driver, Found, Interface};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 use std::time::Duration;
 
-pub const MICE: Driver = Driver { name: "", kind: Kind::Mouse, vid: 0x1532, pids: MOUSE_PIDS, usage_page: ANY, usage: ANY, read };
+pub const MICE: Driver = Driver { name: "", kind: Kind::Mouse, vid: 0x1532, pids: MOUSE_PIDS, interface: Interface::Any, read };
 pub const KEYBOARDS: Driver =
-    Driver { name: "", kind: Kind::Keyboard, vid: 0x1532, pids: KEYBOARD_PIDS, usage_page: ANY, usage: ANY, read };
+    Driver { name: "", kind: Kind::Keyboard, vid: 0x1532, pids: KEYBOARD_PIDS, interface: Interface::Any, read };
 
 const CLASS_POWER: u8 = 0x07;
 const GET_BATTERY: u8 = 0x80;

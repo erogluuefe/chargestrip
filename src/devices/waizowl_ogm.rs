@@ -7,7 +7,7 @@
 //!
 //! Both are read-only requests the Waizowl software sends on every connection.
 
-use super::{exchange, Driver, Found, ANY};
+use super::{exchange, Driver, Found, Interface};
 use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 
@@ -16,8 +16,7 @@ pub const DRIVER: Driver = Driver {
     kind: Kind::Mouse,
     vid: 0x1915,
     pids: &[0x0728],
-    usage_page: 0xFF0A,
-    usage: ANY,
+    interface: Interface::Page(0xFF0A),
     read,
 };
 

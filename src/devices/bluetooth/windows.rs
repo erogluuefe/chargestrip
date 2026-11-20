@@ -110,6 +110,7 @@ pub fn poll() -> Vec<Reading> {
                 name: if d.name.is_empty() { "Bluetooth device".into() } else { d.name },
                 kind: d.kind.unwrap_or(Kind::Other),
                 battery: Some(Battery { percent, charging: false }),
+                tentative: false,
             })
         })
         .collect()
