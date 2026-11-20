@@ -17,6 +17,7 @@ use hidapi::HidDevice;
 const PID_DONGLE: u16 = 0x0001;
 
 pub const DRIVER: Driver = Driver {
+    name: "Fractal Design Scape",
     kind: Kind::Headset,
     vid: 0x36BC,
     pids: &[PID_DONGLE, 0x2001],

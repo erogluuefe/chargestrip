@@ -19,9 +19,9 @@ use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 use std::time::Duration;
 
-pub const MICE: Driver = Driver { kind: Kind::Mouse, vid: 0x1532, pids: MOUSE_PIDS, usage_page: ANY, usage: ANY, read };
+pub const MICE: Driver = Driver { name: "", kind: Kind::Mouse, vid: 0x1532, pids: MOUSE_PIDS, usage_page: ANY, usage: ANY, read };
 pub const KEYBOARDS: Driver =
-    Driver { kind: Kind::Keyboard, vid: 0x1532, pids: KEYBOARD_PIDS, usage_page: ANY, usage: ANY, read };
+    Driver { name: "", kind: Kind::Keyboard, vid: 0x1532, pids: KEYBOARD_PIDS, usage_page: ANY, usage: ANY, read };
 
 const CLASS_POWER: u8 = 0x07;
 const GET_BATTERY: u8 = 0x80;

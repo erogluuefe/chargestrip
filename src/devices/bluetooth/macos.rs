@@ -77,6 +77,7 @@ fn parse(json: &str) -> Vec<Reading> {
             let percent = d.main.or(d.buds)?;
             Some(Reading {
                 key: format!("bt:{}", d.name),
+                name: d.name,
                 kind: d.kind.unwrap_or(Kind::Other),
                 battery: Some(Battery { percent, charging: false }),
             })
@@ -166,7 +167,8 @@ mod tests {
 }"#;
 
     fn reading(key: &str, kind: Kind, percent: u8) -> Reading {
-        Reading { key: key.into(), kind, battery: Some(Battery { percent, charging: false }) }
+        let name = key.trim_start_matches("bt:").into();
+        Reading { key: key.into(), name, kind, battery: Some(Battery { percent, charging: false }) }
     }
 
     #[test]

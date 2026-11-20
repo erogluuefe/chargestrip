@@ -47,7 +47,7 @@ fn snapshot(readings: &[Reading], last: &mut HashMap<String, u8>) -> Vec<Shown> 
             if let Some(b) = r.battery {
                 last.insert(r.key.clone(), b.percent);
             }
-            present(r.kind, r.battery, last.get(&r.key).copied())
+            present(r.kind, &r.name, r.battery, last.get(&r.key).copied())
         })
         .collect()
 }
@@ -59,7 +59,7 @@ mod tests {
 
     fn r(key: &str, percent: Option<u8>) -> Reading {
         let battery = percent.map(|percent| Battery { percent, charging: false });
-        Reading { key: key.into(), kind: Kind::Mouse, battery }
+        Reading { key: key.into(), name: key.into(), kind: Kind::Mouse, battery }
     }
 
     #[test]

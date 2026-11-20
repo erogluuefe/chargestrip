@@ -15,8 +15,9 @@ use windows_sys::Win32::Devices::DeviceAndDriverInstallation::{
     SetupDiGetDevicePropertyW, DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SP_DEVINFO_DATA,
 };
 use windows_sys::Win32::Devices::Properties::{
-    DEVPKEY_DeviceContainer_Category, DEVPKEY_Device_ContainerId, DEVPROPTYPE, DEVPROP_TYPE_BOOLEAN,
-    DEVPROP_TYPE_BYTE, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING_LIST, DEVPROP_TYPE_UINT32,
+    DEVPKEY_DeviceContainer_Category, DEVPKEY_Device_ContainerId, DEVPKEY_Device_FriendlyName, DEVPROPTYPE,
+    DEVPROP_TYPE_BOOLEAN, DEVPROP_TYPE_BYTE, DEVPROP_TYPE_GUID, DEVPROP_TYPE_STRING, DEVPROP_TYPE_STRING_LIST,
+    DEVPROP_TYPE_UINT32,
 };
 use windows_sys::Win32::Foundation::DEVPROPKEY;
 
@@ -34,6 +35,7 @@ const fn key(fmtid: u128, pid: u32) -> DEVPROPKEY {
 /// What was collected for one physical device.
 #[derive(Default)]
 struct Device {
+    name: String,
     kind: Option<Kind>,
     /// Connection state of the device's own node (connected if either its classic or LE node is).
     connected: Option<bool>,
@@ -70,6 +72,10 @@ pub fn poll() -> Vec<Reading> {
             if id.starts_with("BTHENUM\\DEV_") || id.starts_with("BTHLE\\DEV_") {
                 let mut cod = [0u8; 4];
                 let mut category = [0u8; 256];
+                let mut name = [0u8; 256];
+                if let Some(n) = p(&DEVPKEY_Device_FriendlyName, DEVPROP_TYPE_STRING, &mut name) {
+                    dev.name = first_string(&name[..n]);
+                }
                 dev.kind = dev
                     .kind
                     .or_else(|| p(&CLASS_OF_DEVICE, DEVPROP_TYPE_UINT32, &mut cod).and_then(|_| kind_from_class(u32::from_le_bytes(cod))))
@@ -101,6 +107,7 @@ pub fn poll() -> Vec<Reading> {
             let (percent, live) = d.battery?;
             d.connected.unwrap_or(live).then(|| Reading {
                 key: format!("bt:{container}"),
+                name: if d.name.is_empty() { "Bluetooth device".into() } else { d.name },
                 kind: d.kind.unwrap_or(Kind::Other),
                 battery: Some(Battery { percent, charging: false }),
             })

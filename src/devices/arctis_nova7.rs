@@ -14,6 +14,7 @@ use hidapi::HidDevice;
 const PID_STEPPED: u16 = 0x220A;
 
 pub const DRIVER: Driver = Driver {
+    name: "SteelSeries Arctis Nova 7P",
     kind: Kind::Headset,
     vid: 0x1038,
     pids: &[PID_STEPPED, 0x22A7, 0x2298],

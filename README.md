@@ -33,8 +33,9 @@ keyboard and Bluetooth devices, without keeping vendor software running.
 ## Why Chargestrip
 
 - **Always in view.** On Windows the levels live *inside* the taskbar, next to the `^` tray arrow,
-  as real text and icons, not a tray icon you have to hover. On macOS it is a single menu bar item.
-- **Featherweight.** One ~350 KB executable, ~2 MB of private memory, three threads, five runtime
+  as real text and icons, not a tray icon you have to hover, and on every monitor's taskbar. On
+  macOS it is a single menu bar item. Hover over a device for its name and state.
+- **Featherweight.** One ~380 KB executable, ~2 MB of private memory, three threads, five runtime
   dependencies. No services, no background updater process, no web runtime.
 - **No vendor suites.** Reads the battery straight from the USB receiver or from the operating
   system, so the manufacturer's software can stay closed.
@@ -60,9 +61,16 @@ appearance, like Apple's own items. Menu bar items have a single color, so the s
 instead: a bolt while charging, a warning sign at 15 % or less, and a dimmed item while the device is
 off or asleep. Hover over it for a text summary.
 
-Click the strip (left or right) or the menu bar item for **Refresh**, **Start at login**,
-**Check for updates** and **Quit**. The interface follows the system language (English and Turkish
-today; English for everything else).
+Hover over a device for a tooltip such as *SteelSeries Arctis Nova 7P: 64% — charging*. Click the
+strip (left or right) or the menu bar item for **Refresh**, **Start at login**, **Check for
+updates**, **Copy diagnostics** and **Quit**. The interface follows the system language (English
+and Turkish today; English for everything else).
+
+**Multiple monitors and taskbar layouts (Windows).** Every taskbar gets its own strip. On the main
+taskbar it sits left of the `^` arrow. Other monitors' taskbars have no notification area, so on
+Windows 11 the strip uses the free left end (or follows the taskbar buttons when they are
+left-aligned), and on Windows 10 the right end. On a vertical taskbar (Windows 10) the devices are
+stacked just above the notification area.
 
 ## Install
 
@@ -102,9 +110,10 @@ avoids this, because `curl` downloads are not quarantined.)
 | **Any Bluetooth device** with a battery level | Bluetooth | — | 🧪 Uses the OS value |
 
 ✅ tested with the real device. 🧪 implemented from a public, hardware-tested protocol; it has not
-been tried with that device in Chargestrip yet. If yours misbehaves, please
-[open an issue](https://github.com/erogluuefe/chargestrip/issues) with the output of the
-[probe](#adding-a-device).
+been tried with that device in Chargestrip yet. If yours is missing or wrong, click **Copy
+diagnostics** in the app's menu and paste the result into a
+[new issue](https://github.com/erogluuefe/chargestrip/issues). It lists the app version, the
+connected HID receivers and what each driver reads; nothing is sent anywhere by the app.
 
 **Bluetooth** devices appear while connected, whenever the operating system knows their level, i.e.
 when *Settings → Bluetooth & devices* (Windows) or the Bluetooth menu (macOS) shows a percentage.
@@ -129,7 +138,7 @@ percentages. Chargestrip already supports both, nothing to change on your side.
 
 | | |
 |---|---|
-| Executable | ~350 KB (Windows, icon included) |
+| Executable | ~380 KB (Windows, icon included) |
 | Installer | ~2.2 MB |
 | Private memory | ~2 MB |
 | Threads | 3 (UI, device polling, update check) |
@@ -164,8 +173,8 @@ flowchart LR
 
 Supporting a new USB receiver usually takes one file and one line.
 
-1. **Find the receiver.** Plug it in and run the probe. It lists every vendor-specific HID interface
-   and what each driver currently reads:
+1. **Find the receiver.** Plug it in and use **Copy diagnostics** in the app's menu, or run the same
+   report from source. It lists every vendor-specific HID interface and what each driver reads:
    ```sh
    cargo test probe -- --ignored --nocapture
    ```
@@ -250,7 +259,7 @@ docs/                  protocol notes
 ## Contributing
 
 Issues and pull requests are welcome, especially new devices. For a device request, include the
-model, its connection type and the probe output. Please keep changes small, tested and in the
+model, its connection type and the output of **Copy diagnostics**. Please keep changes small, tested and in the
 spirit of the project: native, light and read-only.
 
 ## License

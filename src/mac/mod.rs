@@ -62,6 +62,7 @@ struct Ui {
     autostart: CheckMenuItem,
     /// "Check for updates"; a manual check's result is also written here.
     check: MenuItem,
+    diagnostics: MenuItem,
     quit: MenuItem,
     /// A published new version and the "Update" entry added at the top of the menu.
     update: Option<(Update, MenuItem)>,
@@ -83,7 +84,13 @@ impl Ui {
 /// its tooltip. Falls back to a text title if the image can't be drawn.
 fn show(icon: &TrayIcon, items: &[Shown]) {
     let text = text_title(items);
-    let _ = icon.set_tooltip(Some(&text));
+    // One line per device with its name and state.
+    let tip = if items.is_empty() {
+        t().tip_none.to_string()
+    } else {
+        items.iter().map(|s| s.tip.as_str()).collect::<Vec<_>>().join("\n")
+    };
+    let _ = icon.set_tooltip(Some(&tip));
     let button = MainThreadMarker::new().zip(icon.ns_status_item()).and_then(|(mtm, item)| item.button(mtm));
     match (button, title::render(items)) {
         (Some(button), Some(image)) => {
@@ -93,6 +100,15 @@ fn show(icon: &TrayIcon, items: &[Shown]) {
         }
         _ => icon.set_title(Some(text)),
     }
+}
+
+/// Puts `text` on the clipboard with the system's `pbcopy`.
+fn copy_to_clipboard(text: &str) -> bool {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let Ok(mut child) = Command::new("/usr/bin/pbcopy").stdin(Stdio::piped()).spawn() else { return false };
+    let written = child.stdin.take().is_some_and(|mut stdin| stdin.write_all(text.as_bytes()).is_ok());
+    child.wait().is_ok_and(|status| status.success()) && written
 }
 
 pub fn run() {
@@ -114,6 +130,7 @@ pub fn run() {
                 let refresh_item = MenuItem::new(t().refresh, true, None);
                 let autostart = CheckMenuItem::new(t().autostart, true, autostart::is_enabled(), None);
                 let check = MenuItem::new(t().check_updates, true, None);
+                let diagnostics = MenuItem::new(t().copy_diagnostics, true, None);
                 let quit = MenuItem::new(t().quit, true, None);
                 // Information only: dimmed, not clickable.
                 let version = MenuItem::new(format!("Chargestrip {}", update::CURRENT), false, None);
@@ -123,6 +140,7 @@ pub fn run() {
                     &autostart,
                     &PredefinedMenuItem::separator(),
                     &check,
+                    &diagnostics,
                     &version,
                     &quit,
                 ]);
@@ -131,7 +149,7 @@ pub fn run() {
                     *flow = ControlFlow::Exit;
                     return;
                 };
-                ui = Some(Ui { icon, menu, refresh: refresh_item, autostart, check, quit, update: None });
+                ui = Some(Ui { icon, menu, refresh: refresh_item, autostart, check, diagnostics, quit, update: None });
                 let p = proxy.clone();
                 refresh = Some(poller::spawn(move |items| {
                     let _ = p.send_event(AppEvent::Readings(items));
@@ -170,6 +188,12 @@ pub fn run() {
                         }
                         Ok(None) => ui.check.set_text(fill(t().label_up_to_date, "")),
                         Err(()) => ui.check.set_text(t().label_check_failed),
+                    }
+                } else if e.id == *ui.diagnostics.id() {
+                    // Fresh HID access on this thread; reading the devices takes up to a few seconds.
+                    let mut api = hidapi::HidApi::new().ok();
+                    if copy_to_clipboard(&crate::devices::diagnostics(api.as_mut())) {
+                        ui.diagnostics.set_text(t().label_diagnostics_copied);
                     }
                 } else if let Some((u, item)) = &ui.update {
                     // The download takes a few seconds; the install script swaps the bundle once this

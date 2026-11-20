@@ -7,7 +7,8 @@
 //! - Root feature (`0x0000`): fn 1 = protocol version (is the device connected?), fn 0 = index of a feature.
 //! - `0x1004` unified battery: fn 1 → `[percent, level bits, charging state]`.
 //! - `0x1000` battery status (older devices): fn 0 → `[percent, next level, charging state]`.
-//! - `0x0005` device name/type: fn 2 → type (keyboard, mouse, headset…).
+//! - `0x0005` device name/type: fn 0 → name length, fn 1 → name characters from an offset,
+//!   fn 2 → type (keyboard, mouse, headset…).
 //!
 //! Up to six devices can pair with a receiver (index 1–6); the first one with a readable battery
 //! is shown. The software ID tells Logitech G HUB's replies apart from ours.
@@ -18,7 +19,8 @@ use hidapi::HidDevice;
 use std::time::Duration;
 
 pub const RECEIVERS: Driver = Driver {
-    kind: Kind::Keyboard, // if the kind can't be learned from the device
+    name: "Logitech device", // if the name can't be read from the device
+    kind: Kind::Keyboard,    // if the kind can't be learned from the device
     vid: 0x046D,
     pids: &[
         0xC539, 0xC53A, 0xC53D, 0xC53F, 0xC541, 0xC545, 0xC547, 0xC54D, // LIGHTSPEED
@@ -49,10 +51,10 @@ fn read(dev: &HidDevice, _pid: u16) -> Option<Found> {
         } else {
             battery_status(&call(dev, index, feature(dev, index, BATTERY_STATUS)?, 0, &[])?)
         }?;
-        let kind = feature(dev, index, DEVICE_NAME)
-            .and_then(|f| call(dev, index, f, 2, &[]))
-            .and_then(|p| kind(*p.first()?));
-        Some(Found { battery, kind })
+        let names = feature(dev, index, DEVICE_NAME);
+        let kind = names.and_then(|f| call(dev, index, f, 2, &[])).and_then(|p| kind(*p.first()?));
+        let name = names.and_then(|f| device_name(dev, index, f));
+        Some(Found { battery, kind, name })
     })
 }
 
@@ -66,6 +68,27 @@ fn call(dev: &HidDevice, index: u8, feature: u8, function: u8, params: &[u8]) ->
         [0x11, i, 0xFF, f, fs, ..] if *i == index && *f == feature && *fs == msg[3] => Some(None),
         _ => None,
     })?
+}
+
+/// The device's name ("G915 X TKL"), read in chunks; prefixed with "Logitech" unless it has a
+/// brand already.
+fn device_name(dev: &HidDevice, index: u8, feature: u8) -> Option<String> {
+    let len = *call(dev, index, feature, 0, &[])?.first()? as usize;
+    let mut bytes = Vec::with_capacity(len);
+    while bytes.len() < len {
+        let chunk = call(dev, index, feature, 1, &[bytes.len() as u8])?;
+        let take: Vec<u8> = chunk.into_iter().take(len - bytes.len()).take_while(|&b| b != 0).collect();
+        if take.is_empty() {
+            break;
+        }
+        bytes.extend(take);
+    }
+    let name = String::from_utf8_lossy(&bytes).trim().to_string();
+    match name.as_str() {
+        "" => None,
+        n if n.starts_with("Logitech") => Some(name),
+        n => Some(format!("Logitech {n}")),
+    }
 }
 
 /// A feature's index on the device; `None` if the device lacks it.

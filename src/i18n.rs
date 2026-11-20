@@ -11,6 +11,20 @@ pub struct Strings {
     pub autostart: &'static str,
     pub check_updates: &'static str,
     pub quit: &'static str,
+    pub copy_diagnostics: &'static str,
+    /// Windows: confirmation after copying the diagnostics.
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub diagnostics_copied: &'static str,
+    /// macOS: the menu entry's text after copying.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub label_diagnostics_copied: &'static str,
+    /// Tooltip: "Name: 64% — charging", "Name: 12% — low battery", "Name: off or asleep (last 40%)".
+    pub tip_charging: &'static str,
+    pub tip_low: &'static str,
+    pub tip_asleep: &'static str,
+    pub tip_last: &'static str,
+    /// Tooltip while no supported device is connected.
+    pub tip_none: &'static str,
     /// Entry at the top of the menu: `{v}`
     pub update_to: &'static str,
     /// Windows: message boxes after a manual check. Question when a new version is found:
@@ -36,6 +50,15 @@ const EN: Strings = Strings {
     autostart: "Start at login",
     check_updates: "Check for updates",
     quit: "Quit",
+    copy_diagnostics: "Copy diagnostics",
+    diagnostics_copied: "Diagnostics copied to the clipboard.
+Paste them into a GitHub issue to report a device that is missing or wrong.",
+    label_diagnostics_copied: "Diagnostics copied ✓",
+    tip_charging: "charging",
+    tip_low: "low battery",
+    tip_asleep: "off or asleep",
+    tip_last: "last",
+    tip_none: "No supported device connected",
     update_to: "Update to {v}",
     ask_update: "Chargestrip {v} is available (installed: {cur}).\nUpdate now?",
     up_to_date: "Chargestrip is up to date ({cur}).",
@@ -50,6 +73,15 @@ const TR: Strings = Strings {
     autostart: "Açılışta başlat",
     check_updates: "Güncellemeleri denetle",
     quit: "Çıkış",
+    copy_diagnostics: "Tanılama bilgisini kopyala",
+    diagnostics_copied: "Tanılama bilgisi panoya kopyalandı.
+Görünmeyen ya da yanlış görünen bir cihazı bildirmek için GitHub'da bir issue'ya yapıştır.",
+    label_diagnostics_copied: "Kopyalandı ✓",
+    tip_charging: "şarj oluyor",
+    tip_low: "pil az",
+    tip_asleep: "kapalı ya da uykuda",
+    tip_last: "son",
+    tip_none: "Bağlı desteklenen cihaz yok",
     update_to: "Güncelle ({v})",
     ask_update: "Chargestrip {v} yayımlandı (kurulu: {cur}).\nŞimdi güncellensin mi?",
     up_to_date: "Chargestrip güncel ({cur}).",

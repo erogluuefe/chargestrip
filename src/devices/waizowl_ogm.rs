@@ -12,6 +12,7 @@ use crate::model::{Battery, Kind};
 use hidapi::HidDevice;
 
 pub const DRIVER: Driver = Driver {
+    name: "Waizowl OGM Pro V2",
     kind: Kind::Mouse,
     vid: 0x1915,
     pids: &[0x0728],
